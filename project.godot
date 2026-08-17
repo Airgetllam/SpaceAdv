@@ -12,12 +12,19 @@ config_version=5
 
 config/name="space adventure 20 minutes in and out v0.0.4"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
+
+[autoload]
+
+ECS="*uid://dfqwl5njvdnmq"
 
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gecs/plugin.cfg")
 
 [file_customization]
 
