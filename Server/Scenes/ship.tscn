@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://dprc2n4qph1fx"]
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_v0lr6"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+
+[node name="Ship" type="RigidBody2D" unique_id=1956275658]
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1949564467]
+replication_config = SubResource("SceneReplicationConfig_v0lr6")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=649653582]
+polygon = PackedVector2Array(-1, -1, 1, -1, 1, 1, -1, 1)

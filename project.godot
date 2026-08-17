@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="space adventure 20 minutes in and out v0.0.4"
+run/main_scene="uid://bea8g5qny1nx7"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
@@ -32,6 +33,10 @@ folder_colors={
 "res://Client/": "blue",
 "res://Server/": "red"
 }
+
+[gecs]
+
+settings/debug_mode=true
 
 [physics]
 
