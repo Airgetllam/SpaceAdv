@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://bjbmqasua7hov"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_rppko"]
+[ext_resource type="Texture2D" uid="uid://bc8eb8dsw7ips" path="res://Server/Sprites/3_engine.png" id="2_phws3"]
+
+[resource]
+script = ExtResource("1_rppko")
+id = "3"
+display_name = "basic engine"
+texture = ExtResource("2_phws3")
+category = "power"
+stats = {
+"armor": 0,
+"energy_cost": -100,
+"hp": 100,
+"mass": 500,
+"thrust": 1000
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"

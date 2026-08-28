@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://bu1cbnd628qq6"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_0qlrs"]
+[ext_resource type="Texture2D" uid="uid://d3s6lxk0lslfu" path="res://Server/Sprites/5_breech.png" id="2_rt5e8"]
+
+[resource]
+script = ExtResource("1_0qlrs")
+id = "5"
+display_name = "basic breech"
+texture = ExtResource("2_rt5e8")
+category = "weapon"
+stats = {
+"armor": 2,
+"energy_cost": -30,
+"hp": 300,
+"mass": 50
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"

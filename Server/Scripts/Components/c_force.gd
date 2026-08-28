@@ -1,4 +1,4 @@
 extends Component
 class_name C_Force
 
-@export var value: int
+@export var value: float = 0

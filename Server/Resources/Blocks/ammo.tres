@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://lwdbaitnmohi"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_oha2d"]
+[ext_resource type="Texture2D" uid="uid://de7v0lcrhth8x" path="res://Server/Sprites/2_ammo.png" id="2_5oa00"]
+
+[resource]
+script = ExtResource("1_oha2d")
+id = "2"
+display_name = "Ammo basic"
+texture = ExtResource("2_5oa00")
+category = "weapon"
+stats = {
+"armor": 1,
+"energy_cost": 0,
+"hp": 400,
+"mass": 250
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"

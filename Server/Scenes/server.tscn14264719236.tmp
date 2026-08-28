@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://bea8g5qny1nx7"]
+
+[ext_resource type="Script" uid="uid://bv7rj1tdo8u7c" path="res://Server/main.gd" id="1_f5y7b"]
+[ext_resource type="Script" uid="uid://cdu5tlyk72uu4" path="res://addons/gecs/ecs/world.gd" id="2_38d5t"]
+
+[node name="Server" type="Node2D" unique_id=103826332]
+script = ExtResource("1_f5y7b")
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=110924865]
+_spawnable_scenes = PackedStringArray("uid://dprc2n4qph1fx")
+spawn_path = NodePath("../World/Ships")
+
+[node name="World" type="Node" parent="." unique_id=944679077]
+script = ExtResource("2_38d5t")
+metadata/_custom_type_script = "uid://cdu5tlyk72uu4"
+
+[node name="Ships" type="Node2D" parent="World" unique_id=110044308]

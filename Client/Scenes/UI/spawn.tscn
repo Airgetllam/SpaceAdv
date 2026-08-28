@@ -1,0 +1,66 @@
+[gd_scene format=3 uid="uid://byh1x28akllnw"]
+
+[ext_resource type="Script" uid="uid://bw2wd5gb424q" path="res://Client/Scripts/UI/connect.gd" id="1_x5rea"]
+
+[node name="Spawn" type="Control" unique_id=863794182]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_x5rea")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=330623572]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -83.5
+offset_top = -68.0
+offset_right = 83.5
+offset_bottom = 68.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=725504901]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer" unique_id=1444003518]
+layout_mode = 2
+text = "Ник: "
+
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer" unique_id=860775973]
+layout_mode = 2
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer" unique_id=1299422276]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer2" unique_id=1021008128]
+layout_mode = 2
+text = "Позиция X: "
+
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer2" unique_id=1225161082]
+layout_mode = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="VBoxContainer" unique_id=1698278619]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer3" unique_id=1450459785]
+layout_mode = 2
+text = "Позиция Y: "
+
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer3" unique_id=608426290]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="VBoxContainer" unique_id=1115513556]
+layout_mode = 2
+text = "Присоединиться"
+
+[node name="Label" type="Label" parent="VBoxContainer" unique_id=635215005]
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="VBoxContainer" unique_id=382523081]
+layout_mode = 2

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://l55s7hbmgypv"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_km43r"]
+[ext_resource type="Texture2D" uid="uid://brkl644nqm1a8" path="res://Server/Sprites/4_reactor.png" id="2_4k61d"]
+
+[resource]
+script = ExtResource("1_km43r")
+id = "4"
+display_name = "basic reactor"
+texture = ExtResource("2_4k61d")
+category = "energy"
+stats = {
+"armor": 1,
+"energy_cost": 1000,
+"hp": 250,
+"mass": 2500
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"

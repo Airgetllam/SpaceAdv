@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://g7xvxwww5qja"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_6pur2"]
+[ext_resource type="Texture2D" uid="uid://c61wfhnrdxd0n" path="res://Server/Sprites/1_barrel.png" id="2_iuqrr"]
+
+[resource]
+script = ExtResource("1_6pur2")
+id = "1"
+display_name = "basic barrel"
+texture = ExtResource("2_iuqrr")
+category = "weapon"
+stats = {
+"armor": 2,
+"energy_cost": 0,
+"hp": 400,
+"mass": 50
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"

@@ -1,0 +1,285 @@
+[gd_resource type="Resource" script_class="ShipDefinition" format=3 uid="uid://bl3tyudvfg8yv"]
+
+[ext_resource type="Script" uid="uid://fab8b46invop" path="res://Server/Scripts/Definitions/ShipDefinition.gd" id="1_dl5of"]
+
+[resource]
+script = ExtResource("1_dl5of")
+ship_name = "all_blocks_test"
+modules_data = Array[Dictionary]([{
+"blocks_data": [{
+"block_id": 3,
+"local_pos": Vector2i(8, 9)
+}, {
+"block_id": 3,
+"local_pos": Vector2i(9, 9)
+}],
+"name": "engine_test"
+}, {
+"blocks_data": [{
+"block_id": 3,
+"local_pos": Vector2i(17, 9)
+}, {
+"block_id": 3,
+"local_pos": Vector2i(18, 9)
+}],
+"name": "engine_test[1]"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(9, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(9, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(9, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(9, 5)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(9, 6)
+}],
+"name": "test_weapon"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(10, 1)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(10, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(10, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(10, 4)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(10, 5)
+}],
+"name": "test_weapon[2]"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(11, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(11, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(11, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(11, 5)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(11, 6)
+}],
+"name": "test_weapon[3]"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(16, 1)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(16, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(16, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(16, 4)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(16, 5)
+}],
+"name": "test_weapon[4]"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(15, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(15, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(15, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(15, 5)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(15, 6)
+}],
+"name": "test_weapon[5]"
+}, {
+"blocks_data": [{
+"block_id": 1,
+"local_pos": Vector2i(17, 2)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(17, 3)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(17, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(17, 5)
+}, {
+"block_id": 5,
+"local_pos": Vector2i(17, 6)
+}],
+"name": "test_weapon[6]"
+}, {
+"blocks_data": [{
+"block_id": 4,
+"local_pos": Vector2i(9, 7)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(10, 7)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(9, 8)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(10, 8)
+}],
+"name": "test_reactor"
+}, {
+"blocks_data": [{
+"block_id": 4,
+"local_pos": Vector2i(16, 7)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(17, 7)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(16, 8)
+}, {
+"block_id": 4,
+"local_pos": Vector2i(17, 8)
+}],
+"name": "test_reactor[7]"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(8, 6)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(8, 7)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(8, 8)
+}],
+"name": "test3"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(8, 3)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(8, 4)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(8, 5)
+}],
+"name": "test3[8]"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(18, 6)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(18, 7)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(18, 8)
+}],
+"name": "test3[9]"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(18, 3)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(18, 4)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(18, 5)
+}],
+"name": "test3[10]"
+}, {
+"blocks_data": [{
+"block_id": 2,
+"local_pos": Vector2i(12, 3)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(13, 3)
+}, {
+"block_id": 2,
+"local_pos": Vector2i(14, 3)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(12, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(13, 4)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(14, 4)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(12, 5)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(13, 5)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(14, 5)
+}, {
+"block_id": 2,
+"local_pos": Vector2i(12, 6)
+}, {
+"block_id": 1,
+"local_pos": Vector2i(13, 6)
+}, {
+"block_id": 2,
+"local_pos": Vector2i(14, 6)
+}, {
+"block_id": 2,
+"local_pos": Vector2i(12, 7)
+}, {
+"block_id": 2,
+"local_pos": Vector2i(13, 7)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(14, 7)
+}],
+"name": "test9"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(11, 7)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(11, 8)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(11, 9)
+}],
+"name": "test3[14]"
+}, {
+"blocks_data": [{
+"block_id": 0,
+"local_pos": Vector2i(15, 7)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(15, 8)
+}, {
+"block_id": 0,
+"local_pos": Vector2i(15, 9)
+}],
+"name": "test3[15]"
+}])
+size = 75

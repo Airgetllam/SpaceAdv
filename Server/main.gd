@@ -2,27 +2,60 @@ extends Node
 class_name Server
 
 @onready var _world = $World
-@onready var spawner = $MultiplayerSpawner
-@onready var ship = load("res://Server/Scenes/ship.tscn")
-
 
 func _ready() -> void:
 	ECS.world = _world
-	_world.add_system(SpawnRequestSystem.new())
-	_world.add_system(NetworkConnectSystem.new())
-	
-	var server = Entity.new()
-	server.add_component(C_ServerIP.new())
-	_world.add_entity(server)
-	
-	var spawner_entity = Entity.new()
-	var ref_comp = C_MultiplayerSpawnerRef.new()
-	ref_comp.spawner_path = spawner.get_path()
-	spawner_entity.add_component(ref_comp)
-	spawner_entity.add_component(C_SpawnRequest.new())
-	
-	_world.add_entity(spawner_entity)
+
+	var systems := {
+		"network_control": NetworkControlSystem.new(),
+		"peer_reg": NetworkPeerRegistrationSystem.new(),
+		"admin_cursor_sync": AdminCursorSyncSystem.new(),
+		"cursor_interaction": CursorInteractionSystem.new(),
+		"position_sync": PositionSyncSystem.new(),
+		"control": ControlSystem.new(),
+		"force_apply": ForceApplySystem.new(),
+		"angular_velocity_apply": AngularVelocityApplySystem.new(),
+		"damage_control": DamageControlSystem.new(),
+		"params_sync": ParamsSyncSystem.new(),
+	}
+
+	var observers := [
+		UserSpawnRequestObserver.new(),
+		SpawnPositionSyncObserver.new(),
+		MultimeshCreationObserver.new(),
+		ColliderCreationObserver.new(),
+		RenderInitObserver.new(),
+		PositionToRigidbodyObserver.new(),
+	]
+
+	for system in systems.values():
+		_world.add_system(system)
+	_world.add_observers(observers)
+
+	systems["control"].group = "physics"
+	systems["force_apply"].group = "physics"
+	systems["angular_velocity_apply"].group = "physics"
+	systems["admin_cursor_sync"].group = "admin"
+
+	_create_entity('server', [
+		C_ServerIP.new(),
+		C_Position.new(),
+		C_CursorPosition.new()
+	], _world)
 
 
 func _process(delta: float) -> void:
 	ECS.process(delta)
+
+
+func _physics_process(delta: float) -> void:
+	ECS.process(delta, "physics")
+
+
+func _create_entity(_name: String, components: Array, _world_: World) -> void:
+	var _entity = Entity.new()
+	_entity.name = _name
+	_entity.set_meta('entity_id', _entity.id)
+	for component in components:
+		_entity.add_component(component)
+	_world_.add_entity(_entity)

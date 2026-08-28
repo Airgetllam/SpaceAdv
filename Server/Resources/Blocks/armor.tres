@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BlockDefinition" format=3 uid="uid://c2qj78h51xigs"]
+
+[ext_resource type="Script" uid="uid://c0bc216idpmfo" path="res://Server/Scripts/Definitions/BlockDefinition.gd" id="1_qduim"]
+[ext_resource type="Texture2D" uid="uid://cpkm2n3k7di6i" path="res://Server/Sprites/0_armor.png" id="2_5uki1"]
+
+[resource]
+script = ExtResource("1_qduim")
+id = "0"
+display_name = "Armor basic"
+texture = ExtResource("2_5uki1")
+category = "defence"
+stats = {
+"armor": 5,
+"energy_cost": 0,
+"hp": 500,
+"mass": 100
+}
+metadata/_custom_type_script = "uid://b13s402e2ib7p"
