@@ -13,10 +13,15 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		if UDP.is_connection_available():
 			var peer = UDP.take_connection()
 			var packet = peer.get_packet()
+			var start_pack = JSON.parse_string(packet.get_string_from_utf8())
 			print("Accepted peer: %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-			print("Received data: %s" % [packet.get_string_from_utf8()])
+			print("Received data: %s" % [start_pack])
 			peer.put_packet(packet)
-			server.add_peer(peer, 'test')
+			var params: Dictionary = {
+				'nick': start_pack.nick,
+				'position': start_pack.spawn_pos
+			}
+			server.add_peer(peer, params)
 		for peer in server.peers.keys():
 			var packets_processed = 0
 			const MAX_PACKETS = 10

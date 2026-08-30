@@ -43,45 +43,33 @@ func _process(delta: float) -> void:
 		#var _json = JSON.parse_string(data)
 
 func _on_connect_pressed():
-	udp.connect_to_host("127.0.0.1", 9999)
-	connected = true
-	connect_button.disabled = true
+	# Проверяем ник
 	var nick = nick_line_edit.text.strip_edges()
 	if nick.is_empty():
 		status_label.text = "Введите ник"
 		return
 
-	status_label.text = "Подключение..."
+	# Подключаемся к серверу
+	var err = udp.connect_to_host("127.0.0.1", 9999)
+	if err != OK:
+		status_label.text = "Ошибка подключения"
+		return
 
+	connected = true
+	connect_button.disabled = true
+	status_label.text = "Подключено, отправка данных..."
 
+	# Читаем координаты (с защитой от ошибок)
+	var pos_x = float(pos_x_line_edit.text) if pos_x_line_edit.text.is_valid_float() else 0.0
+	var pos_y = float(pos_y_line_edit.text) if pos_y_line_edit.text.is_valid_float() else 0.0
 
+	# Формируем пакет с данными подключения
+	var connect_data = {
+		"type": "connect",
+		"nick": nick,
+		"spawn_pos": [pos_x, pos_y]   # или отдельными полями
+	}
+	var json = JSON.stringify(connect_data)
+	udp.put_packet(json.to_utf8_buffer())
 
-func _on_connected_to_server():
-	status_label.text = "Подключено к серверу!"
-	var scene = load("res://Client/Scenes/UI/control.tscn")
-	var nick = nick_line_edit.text.strip_edges()
-	var pos = Vector2(
-		float(pos_x_line_edit.text),
-		float(pos_y_line_edit.text)
-	)
-
-
-
-
-'''# client_node.gd
-class_name ClientNode
-extends Node
-
-var udp = PacketPeerUDP.new()
-var connected = false
-
-func _ready():
-	udp.connect_to_host("127.0.0.1", 4242)
-
-func _process(delta):
-	if !connected:
-		# Попробуйте связаться с сервером
-		udp.put_packet("The answer is... 42!".to_utf8_buffer())
-	if udp.get_available_packet_count() > 0:
-		print("Connected: %s" % udp.get_packet().get_string_from_utf8())
-		connected = true'''
+	status_label.text = "Данные отправлены, ожидаем игровой мир..."

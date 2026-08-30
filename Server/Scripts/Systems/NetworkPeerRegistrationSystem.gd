@@ -11,14 +11,15 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		for peer in server.peers.keys():
 			if not peer.has_meta("entity"):
 				var player_entity = Entity.new()
-				player_entity.name = "Player_%s_%s" % [peer.get_packet_ip(), server.peers[peer]]
+				player_entity.name = "Player_%s_%s" % [peer.get_packet_ip(), server.peers[peer].nick]
 
 				var peer_comp = C_PeerID.new()
 				peer_comp.value = _generate_peer_id(peer)
 				player_entity.add_component(peer_comp)
 
 				var spawn_comp = C_SpawnPoint.new()
-				spawn_comp.value = Vector2(200, 200)  # брать из peers
+				var spawn_pos = Vector2(server.peers[peer].position[0], server.peers[peer].position[1])
+				spawn_comp.value = spawn_pos  # брать из peers
 				player_entity.add_component(spawn_comp)
 
 				ECS.world.add_entity(player_entity)

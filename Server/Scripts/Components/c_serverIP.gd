@@ -12,6 +12,6 @@ func _init() -> void:
 	print('UDP server started!')
 
 
-func add_peer(peer: PacketPeerUDP, nick: String) -> void:
-	peers[peer] = nick
+func add_peer(peer: PacketPeerUDP, params: Dictionary) -> void:
+	peers[peer] = params
 	property_changed.emit(self, "peers", peers, peers)
