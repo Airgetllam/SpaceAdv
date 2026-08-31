@@ -493,8 +493,9 @@ func _on_pop_out_pressed():
 	# Create a new window
 	_popup_window = Window.new()
 	_popup_window.title = "GECS Debug Viewer"
-	_popup_window.size = Vector2i(1200, 800)
-	_popup_window.initial_position = Window.WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS
+	_popup_window.current_screen = 2
+	_popup_window.mode = Window.MODE_MAXIMIZED
+	_popup_window.initial_position = Window.WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN
 
 	# Move the main content to the window (not duplicate)
 	var hsplit = get_node("HSplit")

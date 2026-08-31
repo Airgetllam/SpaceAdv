@@ -44,11 +44,11 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		if new_target != old_target:
 			# Удаляем старое отношение
 			if old_target:
-				cmd.remove_relationship(entity, Relationship.new(C_Target.new(), old_target))
+				cmd.remove_relationship(old_target, Relationship.new(C_Target.new(), entity))
 
 			# Добавляем новое отношение
 			if new_target:
-				cmd.add_relationship(entity, Relationship.new(C_Target.new(), new_target))
+				cmd.add_relationship(new_target, Relationship.new(C_Target.new(), entity))
 
 			# Обновляем словарь
 			current_targets[entity] = new_target

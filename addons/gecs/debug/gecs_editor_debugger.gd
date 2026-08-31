@@ -129,6 +129,7 @@ func _setup_session(session_id):
 	if not session.stopped.is_connected(_on_session_stopped):
 		session.stopped.connect(_on_session_stopped)
 	session.add_session_tab(debugger_tab)
+	debugger_tab._on_pop_out_pressed()
 
 
 func _on_session_started():
@@ -138,6 +139,7 @@ func _on_session_started():
 	# Fallback subscribe: if the game already emitted its READY before this session
 	# was wired up, subscribe now anyway (the game handles it idempotently).
 	debugger_tab.on_game_ready()
+	debugger_tab._on_pop_out_pressed()
 
 
 func _on_session_stopped():
