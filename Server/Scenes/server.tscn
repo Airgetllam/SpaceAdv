@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bv7rj1tdo8u7c" path="res://Server/main.gd" id="1_f5y7b"]
 [ext_resource type="Script" uid="uid://cdu5tlyk72uu4" path="res://addons/gecs/ecs/world.gd" id="2_38d5t"]
 [ext_resource type="Texture2D" uid="uid://dahuf84b61yk6" path="res://Server/Sprites/cian_placeholder.png" id="3_16x3l"]
+[ext_resource type="Script" uid="uid://dvmle4sd3tit5" path="res://Server/Scripts/NoECSScripts/ui_render.gd" id="3_xwx4v"]
 [ext_resource type="Texture2D" uid="uid://cfv4u4btycklo" path="res://Server/Sprites/gray_placeholder.png" id="4_xwx4v"]
 [ext_resource type="Texture2D" uid="uid://bydlshmblpxex" path="res://Server/Sprites/lightgray_placeholder.png" id="5_tqe4d"]
 
@@ -17,6 +18,9 @@ script = ExtResource("2_38d5t")
 metadata/_custom_type_script = "uid://cdu5tlyk72uu4"
 
 [node name="Ships" type="Node" parent="World" unique_id=1464634233]
+
+[node name="UI" type="Node2D" parent="World" unique_id=1853406391]
+script = ExtResource("3_xwx4v")
 
 [node name="Camera2D" type="Camera2D" parent="World" unique_id=146469265]
 zoom = Vector2(0.355, 0.355)

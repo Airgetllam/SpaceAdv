@@ -3,6 +3,7 @@ class_name Server
 
 @onready var _world = $World
 
+
 func _ready() -> void:
 	ECS.world = _world
 
@@ -17,6 +18,7 @@ func _ready() -> void:
 		"angular_velocity_apply": AngularVelocityApplySystem.new(),
 		"damage_control": DamageControlSystem.new(),
 		"params_sync": ParamsSyncSystem.new(),
+		"frame_create": FrameGenerateSystem.new()
 	}
 
 	var observers := [
@@ -24,6 +26,7 @@ func _ready() -> void:
 		SpawnPositionSyncObserver.new(),
 		MultimeshCreationObserver.new(),
 		ColliderCreationObserver.new(),
+		SizeDefineObserver.new(),
 		RenderInitObserver.new(),
 		PositionToRigidbodyObserver.new(),
 	]
@@ -35,12 +38,14 @@ func _ready() -> void:
 	systems["control"].group = "physics"
 	systems["force_apply"].group = "physics"
 	systems["angular_velocity_apply"].group = "physics"
+	systems["frame_create"].group = "UI"
 	systems["admin_cursor_sync"].group = "admin"
 
 	_create_entity('server', [
 		C_ServerIP.new(),
 		C_Position.new(),
-		C_CursorPosition.new()
+		C_CursorPosition.new(),
+		C_Targets.new()
 	], _world)
 
 
