@@ -17,15 +17,15 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 				peer_comp.value = _generate_peer_id(peer)
 				player_entity.add_component(peer_comp)
 
-				var spawn_comp = C_SpawnPoint.new()
-				var spawn_pos = Vector2(server.peers[peer].position[0], server.peers[peer].position[1])
-				spawn_comp.value = spawn_pos  # брать из peers
+				var spawn_comp = C_SpawnPoint.new(Vector2(server.peers[peer].position[0], server.peers[peer].position[1]))
 				player_entity.add_component(spawn_comp)
 
 				ECS.world.add_entity(player_entity)
 
 				peer.set_meta("entity", player_entity)
-
+				peer.set_meta('server_entity', entity)
+				player_entity.set_meta('peer', peer)
+				
 				print("Создана сущность для пира %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
 
 func _generate_peer_id(peer: PacketPeerUDP) -> int:

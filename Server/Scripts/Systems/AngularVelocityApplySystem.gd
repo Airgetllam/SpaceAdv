@@ -10,4 +10,4 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		var body: C_RigidBody = entity.get_component(C_RigidBody)
 		var angular_velocity: C_AngularVelocity = entity.get_component(C_AngularVelocity)
 
-		body.node.angular_velocity = angular_velocity.value
+		body.node[0].angular_velocity = angular_velocity.value

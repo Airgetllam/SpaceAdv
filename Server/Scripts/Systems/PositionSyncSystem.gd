@@ -10,4 +10,4 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		var body: C_RigidBody = entity.get_component(C_RigidBody)
 		var pos: C_Position = entity.get_component(C_Position)
 		
-		pos.value = body.node.global_position
+		pos.value = body.node[0].global_position

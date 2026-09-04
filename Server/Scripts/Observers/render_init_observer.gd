@@ -10,7 +10,7 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var polygon = _remove_collinear_points(_get_outline_points(definition.all_blocks))
 	var body: C_RigidBody = entity.get_component(C_RigidBody)
 	var parent = get_tree().current_scene.get_node('World/Ships')
-	var ship = body.node
+	var ship = body.node[0]
 	for i in definition.multlimesh:
 		ship.add_child(definition.multlimesh[i])
 	parent.add_child(ship)

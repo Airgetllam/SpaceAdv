@@ -8,9 +8,11 @@ func _ready() -> void:
 	ECS.world = _world
 
 	var systems := {
+		"cleanup": CleanupSystem.new(),
 		"network_control": NetworkControlSystem.new(),
 		"peer_reg": NetworkPeerRegistrationSystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
+		"admin_atack": AdminAtackSystem.new(),
 		"cursor_interaction": CursorInteractionSystem.new(),
 		"position_sync": PositionSyncSystem.new(),
 		"control": ControlSystem.new(),
@@ -25,10 +27,11 @@ func _ready() -> void:
 		UserSpawnRequestObserver.new(),
 		SpawnPositionSyncObserver.new(),
 		MultimeshCreationObserver.new(),
+		RigidbodyInitObserver.new(),
 		ColliderCreationObserver.new(),
 		SizeDefineObserver.new(),
 		RenderInitObserver.new(),
-		PositionToRigidbodyObserver.new(),
+		PositionToRigidbodyObserver.new()
 	]
 
 	for system in systems.values():

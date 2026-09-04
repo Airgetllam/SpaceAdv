@@ -14,14 +14,21 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 			var peer = UDP.take_connection()
 			var packet = peer.get_packet()
 			var start_pack = JSON.parse_string(packet.get_string_from_utf8())
-			print("Accepted peer: %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-			print("Received data: %s" % [start_pack])
-			peer.put_packet(packet)
-			var params: Dictionary = {
+			if start_pack == null:
+				print("Ошибка парсинга начального пакета от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
+				continue
+			if start_pack.has("type") and start_pack.type == "connect" and not start_pack.has("session_id"):
+				print("Accepted peer: %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
+				var params: Dictionary = {
 				'nick': start_pack.nick,
 				'position': start_pack.spawn_pos
-			}
-			server.add_peer(peer, params)
+				}
+				server.add_peer(peer, params)
+			else:
+				peer.close()
+				#print("Отклонён некорректный пакет от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
+				continue
+			
 		for peer in server.peers.keys():
 			var packets_processed = 0
 			const MAX_PACKETS = 10
@@ -32,7 +39,17 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 				if json == null:
 					print("Ошибка парсинга JSON от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
 					continue
-
+				if not json.has("session_id"):
+					print("Пакет без session_id от %s:%s, игнорируем" % [peer.get_packet_ip(), peer.get_packet_port()])
+					peer.close()
+					server.remove_peer(peer)
+					continue
+				var sent_session = json.session_id
+				if not server.sessions.has(peer) or server.sessions[peer] != sent_session:
+					print("Неверный session_id от %s:%s, игнорируем" % [peer.get_packet_ip(), peer.get_packet_port()])
+					peer.close()
+					server.remove_peer(peer)
+					continue
 				# Проверяем, есть ли сущность, связанная с этим пиром
 				if not peer.has_meta("entity"):
 					print("Пир %s:%s ещё не имеет сущности" % [peer.get_packet_ip(), peer.get_packet_port()])

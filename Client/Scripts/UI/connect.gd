@@ -9,12 +9,34 @@ extends Control
 
 var udp = PacketPeerUDP.new()
 var connected = false
+var session_id = null
+var session_received = false
+
 
 func _ready():
 	connect_button.pressed.connect(_on_connect_pressed)
 
 func _process(delta: float) -> void:
-	
+	if udp.get_available_packet_count() > 0:
+		var packet = udp.get_packet()
+		var data_str = packet.get_string_from_utf8()
+		var json = JSON.parse_string(data_str)
+		if json:
+			if json.has("type") and json.type == "session" and json.has("session_id"):
+				session_id = json.session_id
+				session_received = true
+				status_label.text = "Получен session_id: %d" % session_id
+			elif json.has("type") and json.type == "disconnect":
+				session_received = false
+				connected = false
+				status_label.text = "Сервер разорвал соединение"
+				input_label.text = ""
+				connect_button.disabled = false
+
+
+	if not session_received:
+		return
+
 	var throttle = Input.get_axis("thrust_down", "thrust_up")
 	var turn = Input.get_axis("rotate_minus", "rotate_plus")
 	var brake = Input.is_action_pressed("inertia_break")
@@ -30,17 +52,20 @@ func _process(delta: float) -> void:
 		mouse_pos.x,
 		mouse_pos.y
 	]
-	
-	var input_data = {"throttle": throttle, "turn": turn, "brake": brake, "cursor_pos": mouse_pos}
+
+	var input_data = {
+		"throttle": throttle, 
+		"turn": turn, 
+		"brake": brake, 
+		"cursor_pos": mouse_pos, 
+		"session_id": session_id
+	}
+
+	if session_id != null:
+		input_data["session_id"] = session_id
+
 	var json = JSON.stringify(input_data)
-	
-	if connected:
-		udp.put_packet(json.to_utf8_buffer())
-	if udp.get_available_packet_count() > 0:
-		pass
-		#var packet = udp.get_packet()
-		#var data = packet.get_string_from_utf8()
-		#var _json = JSON.parse_string(data)
+	udp.put_packet(json.to_utf8_buffer())
 
 func _on_connect_pressed():
 	# Проверяем ник

@@ -30,12 +30,10 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 
 		# --- Сброс инерции (торможение) ---
 		if input.brake:
-			body.node.linear_damp = 1.0
+			body.node[0].linear_damp = 1.0
 			force.value = 0
 		else:
-			body.node.linear_damp = 0.0
-
-		# --- Телепортация для отладки ---
-		# Если нужна команда телепортации, можно добавить отдельный компонент-флаг,
-		# или использовать input.brake в связке с другой клавишей.
-		# Здесь мы не реализуем, чтобы не смешивать логику.
+			body.node[0].linear_damp = 0.0
+		
+		if input.fire:
+			pass

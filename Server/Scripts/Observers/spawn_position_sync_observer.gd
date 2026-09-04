@@ -8,5 +8,8 @@ func query() -> QueryBuilder:
 func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var spawn_pos: C_SpawnPoint = entity.get_component(C_SpawnPoint)
 	var pos: C_Position = entity.get_component(C_Position)
-	pos.value = spawn_pos.value
+	if pos:
+		pos.value = spawn_pos.value
+	else:
+		cmd.add_component(entity, C_Position.new(spawn_pos.value))
 	cmd.remove_component(entity, C_SpawnPoint)
