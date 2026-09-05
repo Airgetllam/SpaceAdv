@@ -14,6 +14,6 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 		#   "old_value": старое значение
 		# }
 		var body: C_RigidBody = entity.get_component(C_RigidBody)
-		if body.node:
+		if body.node[0]:
 			body.node[0].global_position = payload.new_value
 		print('[PositionToRigidbodyObserver] ID', entity.id, ' перемещен на: ', payload.new_value)

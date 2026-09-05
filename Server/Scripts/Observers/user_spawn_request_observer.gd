@@ -2,7 +2,7 @@ extends Observer
 class_name UserSpawnRequestObserver
 
 func query() -> QueryBuilder:
-	return q.with_all([C_PeerID, C_SpawnPoint]).on_added()
+	return q.with_all([C_PeerID]).on_added()
 
 func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var peer: C_PeerID = entity.get_component(C_PeerID)

@@ -20,7 +20,9 @@ func _ready() -> void:
 		"angular_velocity_apply": AngularVelocityApplySystem.new(),
 		"damage_control": DamageControlSystem.new(),
 		"params_sync": ParamsSyncSystem.new(),
-		"frame_create": FrameGenerateSystem.new()
+		"frame_create": FrameGenerateSystem.new(),
+		"target_aiming": TargetAimingSystem.new(),
+		"target_force_apply": TargetForceApplySystem.new()
 	}
 
 	var observers := [

@@ -8,12 +8,9 @@ func query() -> QueryBuilder:
 func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var definition: C_Multimesh = entity.get_component(C_Multimesh)
 	var polygon = _remove_collinear_points(_get_outline_points(definition.all_blocks))
-	var body: C_RigidBody = entity.get_component(C_RigidBody)
-	var parent = get_tree().current_scene.get_node('World/Ships')
-	var ship = body.node[0]
+	var parent: C_RigidBody = entity.get_component(C_RigidBody)
 	for i in definition.multlimesh:
-		ship.add_child(definition.multlimesh[i])
-	parent.add_child(ship)
+		parent.node[0].add_child(definition.multlimesh[i])
 	cmd.add_component(entity, C_Blocks.new(definition.blocks_map))
 	cmd.add_component(entity, C_Collider.new(polygon))
 	
