@@ -9,20 +9,28 @@ func _ready() -> void:
 
 	var systems := {
 		"cleanup": CleanupSystem.new(),
+		"timer": LifeTimerSystem.new(),
+		"debug": AdminDebugVisualSystem.new(),
+		"debug_cleanup": AdminDebugCleanupSystem.new(),
 		"network_control": NetworkControlSystem.new(),
 		"peer_reg": NetworkPeerRegistrationSystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
+		#"admin_interact": AdminInteractSystem.new(),
 		"cursor_interaction": CursorInteractionSystem.new(),
 		"position_sync": PositionSyncSystem.new(),
+		"direction_sync": DirectionSyncSystem.new(),
 		"control": ControlSystem.new(),
 		"force_apply": ForceApplySystem.new(),
+		"velocity_apply": VelocityApplySystem.new(),
 		"angular_velocity_apply": AngularVelocityApplySystem.new(),
 		"damage_control": DamageControlSystem.new(),
 		"params_sync": ParamsSyncSystem.new(),
 		"frame_create": FrameGenerateSystem.new(),
 		"target_aiming": TargetAimingSystem.new(),
-		"target_force_apply": TargetForceApplySystem.new()
+		"hit": HitSystem.new(),
+		"explosion": ExplosionSystem.new(),
+		"contact_system": BodyContactSystem.new()
 	}
 
 	var observers := [
@@ -32,19 +40,27 @@ func _ready() -> void:
 		RigidbodyInitObserver.new(),
 		ColliderCreationObserver.new(),
 		SizeDefineObserver.new(),
+		ParamsGenerateObserver.new(),
 		RenderInitObserver.new(),
-		PositionToRigidbodyObserver.new()
+		#PositionToRigidbodyObserver.new(),
+		#DirectionToRigidbodyObserver.new()
 	]
 
-	for system in systems.values():
+	for system_name in systems.keys():
+		var system = systems[system_name]
+		system.name = system_name   # ← вот это присваивает имя
 		_world.add_system(system)
 	_world.add_observers(observers)
 
 	systems["control"].group = "physics"
 	systems["force_apply"].group = "physics"
 	systems["angular_velocity_apply"].group = "physics"
+	systems["position_sync"].group = "physics"
+	systems["direction_sync"].group = "physics"
 	systems["frame_create"].group = "UI"
 	systems["admin_cursor_sync"].group = "admin"
+	systems["debug"].group = "admin"
+	systems["debug_cleanup"].group = "admin"
 
 	_create_entity('server', [
 		C_ServerIP.new(),

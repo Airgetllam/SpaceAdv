@@ -8,6 +8,7 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var peer: C_PeerID = entity.get_component(C_PeerID)
 	var comps = [
 		C_ExistenceState.new(),
+		C_Contact.new(),
 		C_RigidBody.new(),
 		C_Force.new(),
 		C_AngularVelocity.new(),

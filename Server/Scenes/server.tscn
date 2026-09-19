@@ -9,9 +9,9 @@
 [ext_resource type="Texture2D" uid="uid://cwvfuex2etwmw" path="res://Server/Sprites/missile.png" id="7_tqe4d"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tqe4d"]
-size = Vector2(500, 500)
+size = Vector2(250, 250)
 
-[node name="Server" type="Node2D" unique_id=103826332]
+[node name="Server" type="Node" unique_id=2132006740]
 script = ExtResource("1_f5y7b")
 
 [node name="World" type="Node" parent="." unique_id=944679077]
@@ -42,6 +42,7 @@ texture = ExtResource("5_tqe4d")
 
 [node name="RigidBody2D" type="RigidBody2D" parent="." unique_id=2143464908]
 gravity_scale = 0.0
+contact_monitor = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D" unique_id=1711835955]
 position = Vector2(-583, -283)

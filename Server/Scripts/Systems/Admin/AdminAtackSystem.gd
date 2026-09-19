@@ -9,7 +9,6 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		var cursor: C_CursorPosition = entity.get_component(C_CursorPosition)
 		var targets: C_Targets = entity.get_component(C_Targets)
 		var _name = 'msl_%s' % [randi()]
-		var polygon = [Vector2(8, 40)]
 		if Input.is_action_just_pressed("pkm"):
 			var _entity = Entity.new()
 			var _target: Entity
@@ -19,17 +18,16 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 				_target = targets.list[0].entity
 			_entity.name = _name
 			var comps = [
+				C_Debug.new(),
 				C_ExistenceState.new(),
 				C_EntityName.new(_name),
 				C_EntityType.new('projectile'),
 				C_SpawnPoint.new(cursor.position),
-				C_RigidBody.new(),
-				C_Collider.new(polygon),
-				C_Force.new(),
-				C_AngularVelocity.new(),
-				C_Target.new(_target)
+				C_LifeTimer.new(5),
+				C_Velocity.new(),
+				C_Damage.new(100, 1.5),                       #TODO: heh
+				C_Target.new(_target),
+				C_HomingParams.new(3000, 5)
 			]
 			cmd.add_components(_entity, comps)
 			ECS.world.add_entity(_entity)
-			#if !targets.list.is_empty() and targets.list[0].state == 1:
-				

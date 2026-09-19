@@ -82,8 +82,14 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 					if dict['state'] == 1:
 						targets.list.remove_at(i)
 
-func _is_entity_valid(entity: Entity) -> bool:
-	return entity != null and is_instance_valid(entity)
+func _is_entity_valid(entity) -> bool:
+	if entity == null:
+		return false
+	if not is_instance_valid(entity):
+		return false
+	if not (entity is Entity):
+		return false
+	return true
 
 func _clean_dead_targets(targets: C_Targets) -> void:
 	for i in range(targets.list.size() - 1, -1, -1):

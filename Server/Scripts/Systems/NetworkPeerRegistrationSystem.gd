@@ -12,8 +12,10 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 			if not peer.has_meta("entity"):
 				var player_entity = Entity.new()
 				player_entity.name = "Player_%s_%s" % [peer.get_packet_ip(), server.peers[peer].nick]
-
-				var spawn_comp = C_SpawnPoint.new(Vector2(server.peers[peer].position[0], server.peers[peer].position[1]))
+				
+				var _pos = server.peers[peer].position
+				var _dir = 0                              #TODO: Брать от клиента
+				var spawn_comp = C_SpawnPoint.new(Vector2(_pos[0], _pos[1]), _dir)
 				player_entity.add_component(spawn_comp)
 
 				var entity_name = C_EntityName.new(server.peers[peer].nick)
