@@ -69,7 +69,10 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 					if json.has("cursor_pos"):
 						var cursor_comp: C_CursorPosition = player_entity.get_component(C_CursorPosition)
 						if cursor_comp:
-							var str = json["cursor_pos"]
-							var clean = str.trim_prefix("(").trim_suffix(")").split(",")
-							var vec = Vector2(float(clean[0]), float(clean[1]))
+							var _str = json["cursor_pos"].trim_prefix("(").trim_suffix(")").split(",")
+							var vec = Vector2(float(_str[0]), float(_str[1]))
 							cursor_comp.position = vec
+					if json.has('fire'):
+						control_input.fire = bool(json.get("fire"))
+					if json.has('fire_mode'):
+						control_input.fire_mode = int(json.get("fire_mode"))

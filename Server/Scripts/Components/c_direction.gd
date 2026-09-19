@@ -9,4 +9,5 @@ class_name C_Direction
 			property_changed.emit(self, 'value', old_value, new_value)
 
 func _init(_value: float = 0) -> void:
+	print("[CDir init] value=", _value)
 	value = _value

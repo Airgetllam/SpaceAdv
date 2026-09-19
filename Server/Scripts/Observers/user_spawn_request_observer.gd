@@ -14,7 +14,8 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 		C_AngularVelocity.new(),
 		C_ControlInput.new(),
 		C_CursorPosition.new(),
-		C_Modules.new()
+		C_Modules.new(),
+		C_Targets.new()
 	]
 	print('[UserSpawnRequestSystem] C_RigidBody, C_Position, C_Force, C_AngularVelocity, C_PhysicsPoint, C_ControlInput, C_Modules были присвоены peer ID: ', peer.value, '. ID сущности: ', entity.id)
 	cmd.add_components(entity, comps)

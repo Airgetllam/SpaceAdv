@@ -42,13 +42,13 @@ func _ready() -> void:
 		SizeDefineObserver.new(),
 		ParamsGenerateObserver.new(),
 		RenderInitObserver.new(),
-		#PositionToRigidbodyObserver.new(),
-		#DirectionToRigidbodyObserver.new()
+		AmmoControlInitObserver.new(),
+		#PositionToRigidbodyObserver.new()
 	]
 
 	for system_name in systems.keys():
 		var system = systems[system_name]
-		system.name = system_name   # ← вот это присваивает имя
+		system.name = system_name
 		_world.add_system(system)
 	_world.add_observers(observers)
 

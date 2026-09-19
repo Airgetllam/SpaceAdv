@@ -11,7 +11,7 @@ var udp = PacketPeerUDP.new()
 var connected = false
 var session_id = null
 var session_received = false
-
+var fire_mode: int = 1
 
 func _ready():
 	connect_button.pressed.connect(_on_connect_pressed)
@@ -32,6 +32,9 @@ func _process(delta: float) -> void:
 				status_label.text = "Сервер разорвал соединение"
 				input_label.text = ""
 				connect_button.disabled = false
+				nick_line_edit.editable = true
+				pos_x_line_edit.editable = true
+				pos_y_line_edit.editable = true
 
 
 	if not session_received:
@@ -44,13 +47,24 @@ func _process(delta: float) -> void:
 	var camera = viewport.get_camera_2d()
 	var mouse_pos = camera.get_global_mouse_position() if camera else viewport.get_mouse_position()
 
+	# Выбор режима стрельбы: 1 — залп, 2 — очередь
+	if Input.is_key_pressed(KEY_1):
+		fire_mode = 1
+	elif Input.is_key_pressed(KEY_2):
+		fire_mode = 2
+
+	# Стрельба по удержанию Tab
+	var fire = Input.is_key_pressed(KEY_TAB)
+
 	# Отображение
-	input_label.text = "Тяга: %d\nПоворот: %d\nТормоз: %s\nКурсор: (%d, %d)" % [
+	input_label.text = "Тяга: %d\nПоворот: %d\nТормоз: %s\nКурсор: (%d, %d)\nРежим: %d\nОгонь: %s" % [
 		throttle,
 		turn,
 		"вкл" if brake else "выкл",
 		mouse_pos.x,
-		mouse_pos.y
+		mouse_pos.y,
+		fire_mode,
+		"да" if fire else "нет"
 	]
 
 	var input_data = {
@@ -58,6 +72,8 @@ func _process(delta: float) -> void:
 		"turn": turn, 
 		"brake": brake, 
 		"cursor_pos": mouse_pos, 
+		"fire": fire,
+		"fire_mode": fire_mode,
 		"session_id": session_id
 	}
 
@@ -81,6 +97,9 @@ func _on_connect_pressed():
 		return
 
 	connected = true
+	nick_line_edit.editable = false
+	pos_x_line_edit.editable = false
+	pos_y_line_edit.editable = false
 	connect_button.disabled = true
 	status_label.text = "Подключено, отправка данных..."
 

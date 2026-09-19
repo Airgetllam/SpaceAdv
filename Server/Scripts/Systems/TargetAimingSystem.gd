@@ -12,8 +12,9 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 
 		if vel.value == Vector2.ZERO:
 			var dir_comp: C_Direction = entity.get_component(C_Direction)
-			var initial_angle = dir_comp.value if dir_comp else 0
-			vel.value = Vector2.from_angle(initial_angle - PI/2.0) * params.speed
+			var initial_deg = dir_comp.value if dir_comp else 0.0
+			var initial_rad = deg_to_rad(initial_deg) - PI / 2.0
+			vel.value = Vector2.from_angle(initial_rad) * params.speed
 			continue
 
 		var target_comp: C_Target = entity.get_component(C_Target)

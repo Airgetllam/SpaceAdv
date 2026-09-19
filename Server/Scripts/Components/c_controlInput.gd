@@ -5,3 +5,4 @@ class_name C_ControlInput
 @export var turn: float
 @export var brake: bool
 @export var fire: bool
+@export var fire_mode: int
