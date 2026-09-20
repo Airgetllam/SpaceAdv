@@ -19,7 +19,7 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		if not pos or not damage or not exist:
 			continue
 		if exist.value == 0:
-			continue   # уже помечен на уничтожение
+			continue
 
 		var params = PhysicsPointQueryParameters2D.new()
 		params.position = pos.value
@@ -41,6 +41,10 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 			if not is_instance_valid(target) or target == entity:
 				continue
 
+			# Пропускаем, если цель принадлежит нам
+			if _is_owned_by(target, entity):
+				continue
+
 			var blocks: C_Blocks = target.get_component(C_Blocks)
 			var rigid: C_RigidBody = target.get_component(C_RigidBody)
 			if not blocks or not rigid or not rigid.node:
@@ -54,8 +58,6 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 			if blocks.blocks_map[key].destroy:
 				continue
 
-			# Есть валидная цель — помечаем на уничтожение.
-			# Урон будет нанесён в ExplosionSystem.
 			exist.value = 0
 			break
 
@@ -65,3 +67,14 @@ func _local_to_block_key(local_pos: Vector2) -> Vector2:
 		floor(local_pos.x / cell_size - 0.5) + 0.5,
 		floor(local_pos.y / cell_size - 0.5) + 0.5
 	)
+
+# Возвращает true, если target имеет C_Owner и entity входит в список владельцев
+# Возвращает true, если цель принадлежит владельцу снаряда
+func _is_owned_by(target: Entity, projectile: Entity) -> bool:
+	var owner_comp: C_Owner = projectile.get_component(C_Owner)
+	if not owner_comp:
+		return false
+	for _owner in owner_comp.value:
+		if _owner == target:
+			return true
+	return false

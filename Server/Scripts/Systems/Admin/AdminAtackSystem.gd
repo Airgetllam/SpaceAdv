@@ -27,7 +27,7 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 				C_Velocity.new(),
 				C_Damage.new(100, 1.5),                       #TODO: heh
 				C_Target.new(_target),
-				C_HomingParams.new(3000, 5)
+				C_HomingParams.new(3000, 10)
 			]
 			cmd.add_components(_entity, comps)
 			ECS.world.add_entity(_entity)

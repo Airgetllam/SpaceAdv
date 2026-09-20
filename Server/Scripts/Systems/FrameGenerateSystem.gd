@@ -2,7 +2,7 @@ extends System
 class_name FrameGenerateSystem
 
 func query() -> QueryBuilder:
-	return q.with_all([C_Targets])
+	return q.with_all([C_Targets, C_ServerIP])
 
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 	var ui_node = get_tree().current_scene.get_node_or_null("World/UI")
