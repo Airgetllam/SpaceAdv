@@ -94,22 +94,33 @@ func _handle_hello(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> 
 	ps.needs_spawn = true
 
 func _handle_input(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> void:
-	var acked_tick := buf.get_u16()
-	ps.last_acked_input_seq = acked_tick
+	var input_seq := buf.get_u16()
 	var throttle := NetProtocol.dequant_axis(buf.get_u8())
 	var turn := NetProtocol.dequant_axis(buf.get_u8())
 	var flags := buf.get_u8()
 	var cursor_x := buf.get_float()
 	var cursor_y := buf.get_float()
 
-	var e := server.get_entity(ps.net_id)
+	# Отбрасываем устаревшие и дубликаты
+	if input_seq <= ps.last_applied_input_seq:
+		return
+	for q in ps.input_queue:
+		if q.seq == input_seq:
+			return
+
+	ps.input_queue.append({
+		"seq": input_seq,
+		"throttle": throttle,
+		"turn": turn,
+		"brake": (flags & 1) != 0,
+	})
+	while ps.input_queue.size() > 128:
+		ps.input_queue.pop_front()
+
+	# Курсор обновляем сразу — он не влияет на симуляцию
+	var e: Entity = server.get_entity(ps.net_id)
 	if e == null:
 		return
-	var input: C_ControlInput = e.get_component(C_ControlInput)
-	if input:
-		input.throttle = throttle
-		input.turn = turn
-		input.brake = (flags & 1) != 0
 	var cursor: C_CursorPosition = e.get_component(C_CursorPosition)
 	if cursor:
 		cursor.position = Vector2(cursor_x, cursor_y)

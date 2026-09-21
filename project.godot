@@ -17,8 +17,8 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 [autoload]
 
 ECS="*uid://dfqwl5njvdnmq"
-_fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
 ClientSession="*uid://fjpq2mu6t33a"
+_fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
 
 [display]
 

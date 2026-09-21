@@ -18,14 +18,10 @@ func _ready() -> void:
 		"aoi": AOISystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
-		#"admin_interact": AdminInteractSystem.new(),
 		"cursor_interaction": CursorInteractionSystem.new(),
-		"position_sync": PositionSyncSystem.new(),
-		"direction_sync": DirectionSyncSystem.new(),
-		"control": ControlSystem.new(),
-		"force_apply": ForceApplySystem.new(),
+		"movement": MovementSystem.new(),
+		"transform_sync": TransformSyncSystem.new(),
 		"velocity_apply": VelocityApplySystem.new(),
-		"angular_velocity_apply": AngularVelocityApplySystem.new(),
 		"damage_control": DamageControlSystem.new(),
 		"params_sync": ParamsSyncSystem.new(),
 		"frame_create": FrameGenerateSystem.new(),
@@ -46,7 +42,6 @@ func _ready() -> void:
 		ParamsGenerateObserver.new(),
 		RenderInitObserver.new(),
 		AmmoControlInitObserver.new(),
-		#PositionToRigidbodyObserver.new()
 	]
 
 	for system_name in systems.keys():
@@ -55,16 +50,13 @@ func _ready() -> void:
 		_world.add_system(system)
 	_world.add_observers(observers)
 
-	systems["control"].group = "physics"
-	systems["force_apply"].group = "physics"
-	systems["angular_velocity_apply"].group = "physics"
-	systems["position_sync"].group = "physics"
-	systems["direction_sync"].group = "physics"
+	systems["transform_sync"].group = "physics"
 	systems["frame_create"].group = "UI"
 	systems["admin_cursor_sync"].group = "admin"
 	systems["debug"].group = "admin"
 	systems["debug_cleanup"].group = "admin"
 	systems["net_send"].group = "network"
+	systems["movement"].group = "physics"
 
 	_create_entity('server', [
 		C_ServerIP.new(),

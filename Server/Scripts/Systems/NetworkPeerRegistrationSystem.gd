@@ -29,5 +29,9 @@ func _spawn(server: C_ServerIP, ps: PeerState) -> void:
 	ECS.world.add_entity(e)
 	server.register_entity(ps.net_id, e)
 	e.set_meta("peer_state", ps)   # временная ссылка (разрешено правилами)
+	ps.acked_pos = ps.spawn_pos
+	ps.acked_rot = 0.0
+	ps.acked_vel = Vector2.ZERO
+	ps.acked_initialized = true
 
 	NetLog.d("spawn", "player net_id=%d nick=%s" % [ps.net_id, ps.nick])

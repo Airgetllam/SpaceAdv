@@ -53,6 +53,25 @@ var _last_acked_input_seq: int = 0
 # Счётчик тиков для отладки
 var _last_server_tick: int = 0
 
+
+const FIXED_DT: float = MovementModel.FIXED_DT
+const INPUT_RATE: float = 30.0
+const INPUT_INTERVAL: float = 1.0 / INPUT_RATE
+
+# История отправленных input (для reconciliation)
+# [{ seq, throttle, turn, brake, dt }]
+var _input_history: Array = []
+
+# Локальное состояние предсказания (только для себя)
+var _pred_pos: Vector2 = Vector2.ZERO
+var _pred_rot: float = 0.0
+var _pred_vel: Vector2 = Vector2.ZERO
+var _pred_throttle: float = 0.0
+var _pred_initialized: bool = false
+
+var _last_server_vel: Vector2 = Vector2.ZERO
+var _last_reconciled_seq: int = 0
+
 func _ready() -> void:
 	connect_button.pressed.connect(_on_connect_pressed)
 
@@ -88,15 +107,93 @@ func _process(delta: float) -> void:
 	# 3. Отправка ввода (30 Гц)
 	if _state == State.IN_GAME:
 		_input_accum += delta
-		if _input_accum >= NetConfig.CLIENT_INPUT_DT:
-			_input_accum -= NetConfig.CLIENT_INPUT_DT
-			_send_input()
-
-		# 4. Пинг раз в секунду
+		while _input_accum >= INPUT_INTERVAL:
+			_input_accum -= INPUT_INTERVAL
+			_do_input_tick()
 		_ping_accum += delta
 		if _ping_accum >= PING_INTERVAL:
 			_ping_accum = 0.0
 			_send_ping()
+	_sync_local_mirror()
+
+func _sync_local_mirror() -> void:
+	if not _pred_initialized:
+		return
+	var e: Dictionary = _mirror_entities.get(_net_id, {})
+	if e.is_empty():
+		return
+	e["pos"] = _pred_pos
+	e["rot"] = _pred_rot
+	_mirror_entities[_net_id] = e
+
+func _do_input_tick() -> void:
+	if not _pred_initialized:
+		return
+
+	var throttle_raw := Input.get_axis("thrust_down", "thrust_up")
+	var turn_raw := Input.get_axis("rotate_minus", "rotate_plus")
+	var brake := Input.is_action_pressed("inertia_break")
+	var fire := Input.is_action_pressed("fire")
+
+	var throttle_q: int = NetProtocol.quant_axis(throttle_raw)
+	var turn_q: int = NetProtocol.quant_axis(turn_raw)
+	var throttle: float = NetProtocol.dequant_axis(throttle_q)
+	var turn: float = NetProtocol.dequant_axis(turn_q)
+
+	var seq := _input_seq
+	_input_seq = (_input_seq + 1) & 0xFFFF
+	if _input_seq == 0:
+		_input_seq = 1
+
+	# Локальное применение input
+	var out: Dictionary = MovementModel.step({
+		"pos": _pred_pos,
+		"rot": _pred_rot,
+		"vel": _pred_vel,
+		"throttle": _pred_throttle,
+	}, {
+		"throttle": throttle,
+		"turn": turn,
+		"brake": brake,
+		"dt": FIXED_DT,
+	})
+	_pred_pos = out.pos
+	_pred_rot = out.rot
+	_pred_vel = out.vel
+	_pred_throttle = out.throttle
+
+	# История — только inputs, без состояния
+	_input_history.append({
+		"seq": seq,
+		"throttle": throttle,
+		"turn": turn,
+		"brake": brake,
+		"dt": FIXED_DT,
+	})
+	if _input_history.size() > 256:
+		_input_history.pop_front()
+
+	# Отправка MSG_INPUT
+	var mouse_pos := get_viewport().get_mouse_position()
+	var camera := get_viewport().get_camera_2d()
+	var world_pos := mouse_pos
+	if camera:
+		world_pos = camera.get_screen_center_position() \
+			+ (mouse_pos - get_viewport_rect().size * 0.5)
+
+	var flags := 0
+	if brake: flags |= 1
+	if fire:  flags |= 2
+
+	var buf := StreamPeerBuffer.new()
+	NetProtocol.write_header(buf, NetProtocol.MSG_INPUT, 0)
+	buf.put_u16(seq)
+	buf.put_u8(throttle_q)
+	buf.put_u8(turn_q)
+	buf.put_u8(flags)
+	buf.put_float(world_pos.x)
+	buf.put_float(world_pos.y)
+	_udp.put_packet(buf.data_array)
 
 func _update_interpolation(delta: float) -> void:
 	var step: float = delta / INTERP_DURATION
@@ -217,55 +314,109 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 		var has_hp: bool  = (mask & 4) != 0
 		var has_vel: bool = (mask & 8) != 0
 
-		var qx: int = 0
-		var qy: int = 0
-		if has_pos:
-			qx = buf.get_u16()
-			qy = buf.get_u16()
-		var qrot: int = buf.get_u16() if has_rot else 0
-		var hp: int = buf.get_u16() if has_hp else 0
-		var vx: int = 0
-		var vy: int = 0
-		if has_vel:
-			vx = buf.get_16()
-			vy = buf.get_16()
-
 		var entry: Dictionary = _mirror_entities.get(net_id, {})
 		if entry.is_empty():
-			# Пришёл STATE для сущности, которую ещё не SPAWN-или — игнор
 			continue
 
-		var world_pos: Vector2 = entry.get("pos", Vector2.ZERO)
-		var world_rot: float = entry.get("rot", 0.0)
-
+		# --- Позиция ---
 		if has_pos:
-			world_pos = NetProtocol.dequant_pos(
+			var qx: int = buf.get_u16()
+			var qy: int = buf.get_u16()
+			entry["pos"] = NetProtocol.dequant_pos(
 				Vector2i(qx, qy), ClientSession.map_min, ClientSession.map_max
 			)
+
+		# --- Поворот ---
 		if has_rot:
-			world_rot = NetProtocol.dequant_rot(qrot)
+			var qrot: int = buf.get_u16()
+			entry["rot"] = NetProtocol.dequant_rot(qrot)
+
+		# --- HP ---
 		if has_hp:
-			entry["hp"] = hp
+			entry["hp"] = buf.get_u16()
+
+		# --- Velocity (КЛЮЧЕВОЕ: сохраняем в entry) ---
+		if has_vel:
+			var vx: int = buf.get_16()
+			var vy: int = buf.get_16()
+			entry["vel"] = Vector2(vx, vy)
 
 		if net_id == _net_id:
-			# Локальный игрок: сохраняем серверное состояние
-			# (client-side prediction в Этапе 5)
-			_last_server_pos = world_pos
-			_last_server_rot = world_rot
-			_last_server_hp = entry.get("hp", 0)
-			_last_server_hp_max = entry.get("hp_max", 0)
-			entry["pos"] = world_pos
-			entry["rot"] = world_rot
+			_on_own_state(entry, acked_input_seq)
 		else:
-			# Чужая сущность: обновляем цель интерполяции
-			entry["prev_pos"] = entry.get("curr_pos", world_pos)
-			entry["prev_rot"] = entry.get("curr_rot", world_rot)
-			entry["curr_pos"] = world_pos
-			entry["curr_rot"] = world_rot
-			entry["interp_t"] = 0.0
-			entry["has_target"] = true
+			_on_remote_state(entry)
 
 		_mirror_entities[net_id] = entry
+
+
+func _on_own_state(entry: Dictionary, acked_input_seq: int) -> void:
+	var world_pos: Vector2 = entry.get("pos", _pred_pos)
+	var world_rot: float   = entry.get("rot", _pred_rot)
+	var server_vel: Vector2 = entry.get("vel", _last_server_vel)
+
+	_last_server_pos = world_pos
+	_last_server_rot = world_rot
+	_last_server_vel = server_vel
+	_last_acked_input_seq = acked_input_seq
+
+	if not _pred_initialized:
+		_pred_pos = world_pos
+		_pred_rot = world_rot
+		_pred_vel = server_vel
+		_pred_throttle = 0.0
+		_pred_initialized = true
+		return
+
+	# КЛЮЧЕВОЕ: не reconcile повторно с тем же acked
+	if acked_input_seq > 0 and acked_input_seq > _last_reconciled_seq:
+		_reconcile(acked_input_seq, world_pos, world_rot, server_vel)
+
+
+func _on_remote_state(entry: Dictionary) -> void:
+	var world_pos: Vector2 = entry.get("pos", Vector2.ZERO)
+	var world_rot: float   = entry.get("rot", 0.0)
+	entry["prev_pos"] = entry.get("curr_pos", world_pos)
+	entry["prev_rot"] = entry.get("curr_rot", world_rot)
+	entry["curr_pos"] = world_pos
+	entry["curr_rot"] = world_rot
+	entry["interp_t"] = 0.0
+	entry["has_target"] = true
+
+func _reconcile(acked_seq: int, server_pos: Vector2, server_rot: float, server_vel: Vector2) -> void:
+	# 1. Стартуем с авторитетного серверного состояния на момент ack
+	var s: Dictionary = {
+		"pos": server_pos,
+		"rot": server_rot,
+		"vel": server_vel,
+		"throttle": _pred_throttle,
+	}
+
+	# 2. Replay всех inputs, отправленных ПОСЛЕ ack
+	for inp in _input_history:
+		if inp.seq <= acked_seq:
+			continue
+		s = MovementModel.step(s, {
+			"throttle": inp.throttle,
+			"turn": inp.turn,
+			"brake": inp.brake,
+			"dt": inp.dt,
+		})
+
+	# 3. Результат replay — новая prediction
+	_pred_pos = s.pos
+	_pred_rot = s.rot
+	_pred_vel = s.vel
+	_pred_throttle = s.throttle
+	_last_reconciled_seq = acked_seq
+
+	# 4. Удаляем inputs с seq <= acked_seq
+	var new_history: Array = []
+	for inp in _input_history:
+		if inp.seq > acked_seq:
+			new_history.append(inp)
+	_input_history = new_history
+
+	NetLog.d("reconcile", "acked=%d pending=%d" % [acked_seq, _input_history.size()])
 
 func _on_spawn(buf: StreamPeerBuffer) -> void:
 	var net_id       := buf.get_u16()
@@ -348,6 +499,7 @@ func _on_welcome(buf: StreamPeerBuffer) -> void:
 	NetLog.d("client", "WELCOME session=%d net_id=%d tick=%d" % [_session_id, _net_id, _tick_rate])
 
 	_state = State.IN_GAME
+	_pred_initialized = false
 	_set_status("In game (net_id=%d)" % _net_id)
 
 	ClientSession.session_id = _session_id
@@ -356,6 +508,8 @@ func _on_welcome(buf: StreamPeerBuffer) -> void:
 	ClientSession.map_min = _map_min
 	ClientSession.map_max = _map_max
 	ClientSession.udp = _udp
+	
+	_last_reconciled_seq = 0
 
 
 func _on_pong(buf: StreamPeerBuffer) -> void:

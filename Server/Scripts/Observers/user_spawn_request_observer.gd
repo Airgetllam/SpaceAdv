@@ -7,9 +7,9 @@ func query() -> QueryBuilder:
 func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var comps = [
 		C_ExistenceState.new(),
-		C_Contact.new(),
 		C_RigidBody.new(),
 		C_Force.new(),
+		C_Velocity.new(),
 		C_AngularVelocity.new(),
 		C_ControlInput.new(),
 		C_CursorPosition.new(),
