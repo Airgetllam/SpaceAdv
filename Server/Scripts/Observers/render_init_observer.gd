@@ -9,8 +9,8 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var definition: C_Multimesh = entity.get_component(C_Multimesh)
 	var polygon = _remove_collinear_points(_get_outline_points(definition.all_blocks))
 	var parent: C_RigidBody = entity.get_component(C_RigidBody)
-	for i in definition.multlimesh:
-		parent.node[0].add_child(definition.multlimesh[i])
+	for i in definition.multimesh:
+		parent.node[0].add_child(definition.multimesh[i])
 	cmd.add_component(entity, C_Blocks.new(definition.blocks_map))
 	cmd.add_component(entity, C_Collider.new(polygon))
 	

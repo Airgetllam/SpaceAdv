@@ -38,7 +38,8 @@ enabled=PackedStringArray("res://addons/gecs/plugin.cfg")
 
 folder_colors={
 "res://Client/": "purple",
-"res://Server/": "red"
+"res://Server/": "red",
+"res://Shared/": "teal"
 }
 
 [gecs]

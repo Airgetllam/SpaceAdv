@@ -9,7 +9,7 @@ func _ready():
 	var scene_path = "res://Client/Scenes/UI/spawn.tscn"
 	if is_server:
 		scene_path = "res://Server/Scenes/server.tscn"
-
+	NetLog.init_from_args(OS.get_cmdline_args())
 	# Откладываем загрузку сцены до следующего кадра
 	call_deferred("_deferred_load_scene", scene_path)
 

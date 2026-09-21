@@ -2,7 +2,7 @@ extends System
 class_name ControlSystem
 
 func query() -> QueryBuilder:
-	return q.with_all([C_PeerID])
+	return q.with_all([C_PeerID, C_Force, C_AngularVelocity, C_ControlInput, C_RigidBody])
 
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 	const THROTTLE_INCREASE_SPEED := 0.01
@@ -46,7 +46,7 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 			_handle_fire(entity, input)
 
 func _handle_fire(entity: Entity, input: C_ControlInput) -> void:
-	var sockets_comp: C_AtackSocket = entity.get_component(C_AtackSocket)
+	var sockets_comp: C_AttackSocket = entity.get_component(C_AttackSocket)
 	var rigid: C_RigidBody = entity.get_component(C_RigidBody)
 	var ammo: C_Ammo = entity.get_component(C_Ammo)
 	if not sockets_comp or not rigid or not rigid.node or not ammo:

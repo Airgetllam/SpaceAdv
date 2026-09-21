@@ -38,7 +38,7 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	var groups = _group_blocks_by_id(all_blocks)
 	for i in groups:
 		var mesh_inst = _create_multimesh(groups[i], str(i), modules.available_blocks, modules.blocks_textures)
-		multimesh_component.multlimesh[mesh_inst.name] = mesh_inst
+		multimesh_component.multimesh[mesh_inst.name] = mesh_inst
 	multimesh_component.blocks_map = blocks_map
 	multimesh_component.all_blocks = all_blocks
 	cmd.add_component(entity, multimesh_component)

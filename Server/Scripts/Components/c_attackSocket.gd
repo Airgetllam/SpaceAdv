@@ -1,5 +1,5 @@
 extends Component
-class_name C_AtackSocket
+class_name C_AttackSocket
 
 @export var value: Array = []
 

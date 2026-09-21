@@ -53,4 +53,4 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 			if not socks.has(spawn_point):
 				socks.append(spawn_point)
 
-	cmd.add_component(entity, C_AtackSocket.new(socks))
+	cmd.add_component(entity, C_AttackSocket.new(socks))
