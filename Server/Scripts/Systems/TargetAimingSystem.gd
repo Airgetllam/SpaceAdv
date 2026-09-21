@@ -55,6 +55,7 @@ func _get_aim_point(target: Entity, from_pos: Vector2) -> Variant:
 	# Если у цели нет блоков — наводимся на её позицию
 	if not blocks or not rigid or not rigid.node:
 		var tpos: C_Position = target.get_component(C_Position)
+		@warning_ignore("incompatible_ternary")
 		return tpos.value if tpos else null
 
 	var body = rigid.node[0]
@@ -77,6 +78,7 @@ func _get_aim_point(target: Entity, from_pos: Vector2) -> Variant:
 	# Если все блоки уничтожены — наводимся на центр цели
 	if nearest_pos == null:
 		var tpos: C_Position = target.get_component(C_Position)
+		@warning_ignore("incompatible_ternary")
 		return tpos.value if tpos else null
 
 	return nearest_pos

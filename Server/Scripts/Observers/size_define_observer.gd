@@ -4,7 +4,7 @@ class_name SizeDefineObserver
 func query() -> QueryBuilder:
 	return q.with_all([C_Collider]).on_added()
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var collider: C_Collider = entity.get_component(C_Collider)
 	if collider == null or collider.polygon.is_empty():
 		return

@@ -16,7 +16,7 @@ var _outline_node: Node2D = null
 func query() -> QueryBuilder:
 	return q.with_all([C_Debug, C_Position, C_EntityName])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	# Ленивая инициализация UI
 	if ui_node == null or not is_instance_valid(ui_node):
 		ui_node = _get_ui_node()

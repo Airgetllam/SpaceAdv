@@ -4,7 +4,7 @@ class_name BodyContactSystem
 func query() -> QueryBuilder:
 	return q.with_all([C_Contact])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var contact: C_Contact = entity.get_component(C_Contact)
 		var entity_type: C_EntityType = entity.get_component(C_EntityType)

@@ -6,7 +6,7 @@ var hp_colors: Dictionary = ServerConfig.HP_COLORS
 func query() -> QueryBuilder:
 	return q.with_all([C_StateChanged, C_Blocks])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var blocks: C_Blocks = entity.get_component(C_Blocks)
 		var block_changed: C_StateChanged = entity.get_component(C_StateChanged)

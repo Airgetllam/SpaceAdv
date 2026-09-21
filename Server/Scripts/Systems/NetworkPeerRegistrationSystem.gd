@@ -1,41 +1,33 @@
-extends System
 class_name NetworkPeerRegistrationSystem
+extends System
 
 func query() -> QueryBuilder:
 	return q.with_all([C_ServerIP])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var server: C_ServerIP = entity.get_component(C_ServerIP)
+		for ps in server.peers.values():
+			if ps.needs_spawn and not server.net_id_to_entity.has(ps.net_id):
+				_spawn(server, ps)
+				ps.needs_spawn = false
 
-		for peer in server.peers.keys():
-			if not peer.has_meta("entity"):
-				var player_entity = Entity.new()
-				player_entity.name = "Player_%s_%s" % [peer.get_packet_ip(), server.peers[peer].nick]
-				
-				var _pos = server.peers[peer].position
-				var _dir = 0                              #TODO: Брать от клиента
-				var spawn_comp = C_SpawnPoint.new(Vector2(_pos[0], _pos[1]), _dir)
-				player_entity.add_component(spawn_comp)
+func _spawn(server: C_ServerIP, ps: PeerState) -> void:
+	var e := Entity.new()
+	e.name = "Player_%d" % ps.net_id
 
-				var entity_name = C_EntityName.new(server.peers[peer].nick)
-				player_entity.add_component(entity_name)
+	# C_PeerID — через .new() + .value (нет _init с параметром)
+	var peer_id := C_PeerID.new()
+	peer_id.value = ps.net_id
+	
+	e.add_component(C_NetId.new(ps.net_id))
+	e.add_component(C_SpawnPoint.new(ps.spawn_pos))
+	e.add_component(C_EntityType.new("user"))
+	e.add_component(C_EntityName.new(ps.nick))
+	e.add_component(peer_id)
 
-				var entity_type = C_EntityType.new('user')
-				player_entity.add_component(entity_type)
+	ECS.world.add_entity(e)
+	server.register_entity(ps.net_id, e)
+	e.set_meta("peer_state", ps)   # временная ссылка (разрешено правилами)
 
-				var peer_comp = C_PeerID.new()
-				peer_comp.value = _generate_peer_id(peer)
-				player_entity.add_component(peer_comp)
-
-				ECS.world.add_entity(player_entity)
-
-				peer.set_meta("entity", player_entity)
-				peer.set_meta('server_entity', entity)
-				player_entity.set_meta('peer', peer)
-
-				print("Создана сущность для пира %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-
-func _generate_peer_id(peer: PacketPeerUDP) -> int:
-	# Генерируем уникальный ID на основе IP и порта
-	return hash(peer.get_packet_ip() + str(peer.get_packet_port()))
+	NetLog.d("spawn", "player net_id=%d nick=%s" % [ps.net_id, ps.nick])

@@ -7,7 +7,7 @@ var outline_node: Node2D = null
 func query() -> QueryBuilder:
 	return q.with_all([C_ServerIP])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(_entities: Array[Entity], _components: Array, _delta: float) -> void:
 	if ui_node == null or not is_instance_valid(ui_node):
 		ui_node = _find_ui_node()
 		if ui_node == null:

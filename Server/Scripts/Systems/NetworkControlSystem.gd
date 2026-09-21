@@ -1,78 +1,144 @@
-extends System
 class_name NetworkControlSystem
+extends System
 
+const MAX_PACKETS := NetConfig.MAX_PACKETS_PER_PEER_PER_TICK
 
 func query() -> QueryBuilder:
 	return q.with_all([C_ServerIP])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var server: C_ServerIP = entity.get_component(C_ServerIP)
-		var UDP = server.UDP_connection[0]
-		UDP.poll()
-		if UDP.is_connection_available():
-			var peer = UDP.take_connection()
-			var packet = peer.get_packet()
-			var start_pack = JSON.parse_string(packet.get_string_from_utf8())
-			if start_pack == null:
-				print("Ошибка парсинга начального пакета от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-				continue
-			if start_pack.has("type") and start_pack.type == "connect" and not start_pack.has("session_id"):
-				print("Accepted peer: %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-				var params: Dictionary = {
-				'nick': start_pack.nick,
-				'position': start_pack.spawn_pos
-				}
-				server.add_peer(peer, params)
-			else:
-				peer.close()
-				#print("Отклонён некорректный пакет от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-				continue
-			
+		if server.UDP_connection.is_empty():
+			continue
+		var udp: UDPServer = server.UDP_connection[0]
+		udp.poll()
+
+		# ─── 1. Принимаем новых UDP-пиров ──────────────────────────────
+		# UDPServer создаёт "pending peer" для каждого нового адреса.
+		# take_connection() извлекает его вместе с буферизованным первым
+		# пакетом (HELLO). Без этого шага сервер никогда не увидит клиента.
+		while udp.is_connection_available():
+			var new_peer: PacketPeerUDP = udp.take_connection()
+			if new_peer == null:
+				break
+			var new_ps := PeerState.new()
+			new_ps.udp_peer = new_peer
+			new_ps.touch()
+			server.peers[new_peer] = new_ps
+			NetLog.d("server", "accepted UDP peer from %s:%d" % [
+				new_peer.get_packet_ip(), new_peer.get_packet_port()
+			])
+
+		# ─── 2. Читаем пакеты от известных пиров ───────────────────────
+		var dead_peers: Array = []
 		for peer in server.peers.keys():
-			var packets_processed = 0
-			const MAX_PACKETS = 10
-			while peer.get_available_packet_count() > 0 and packets_processed < MAX_PACKETS:
-				var packet = peer.get_packet()
-				var data_str = packet.get_string_from_utf8()
-				var json = JSON.parse_string(data_str)
-				if json == null:
-					print("Ошибка парсинга JSON от %s:%s" % [peer.get_packet_ip(), peer.get_packet_port()])
-					continue
-				if not json.has("session_id"):
-					print("Пакет без session_id от %s:%s, игнорируем" % [peer.get_packet_ip(), peer.get_packet_port()])
-					peer.close()
-					server.remove_peer(peer)
-					continue
-				var sent_session = json.session_id
-				if not server.sessions.has(peer) or server.sessions[peer] != sent_session:
-					print("Неверный session_id от %s:%s, игнорируем" % [peer.get_packet_ip(), peer.get_packet_port()])
-					peer.close()
-					server.remove_peer(peer)
-					continue
-				# Проверяем, есть ли сущность, связанная с этим пиром
-				if not peer.has_meta("entity"):
-					print("Пир %s:%s ещё не имеет сущности" % [peer.get_packet_ip(), peer.get_packet_port()])
-					continue
+			var ps: PeerState = server.peers[peer]
+			var count := 0
+			while count < MAX_PACKETS and peer.get_available_packet_count() > 0:
+				var raw: PackedByteArray = peer.get_packet()
+				if raw.is_empty():
+					break
+				ps.touch()
+				var buf := StreamPeerBuffer.new()
+				buf.data_array = raw
+				_handle_message(server, ps, raw, buf)
+				count += 1
+			if ps.is_timed_out(Time.get_ticks_msec()):
+				dead_peers.append(peer)
 
-				var player_entity: Entity = peer.get_meta("entity")
+		# ─── 3. Отключаем таймаутных ───────────────────────────────────
+		for peer in dead_peers:
+			_disconnect_peer(server, peer)
 
-				# Обновляем управление (throttle, turn, brake)
-				var control_input: C_ControlInput = player_entity.get_component(C_ControlInput)
-				if control_input:
-					if json.has("throttle"):
-						control_input.throttle = clamp(json.get("throttle"), -1.0, 1.0)
-					if json.has("turn"):
-						control_input.turn = clamp(json.get("turn"), -1.0, 1.0)
-					if json.has("brake"):
-						control_input.brake = bool(json.get("brake"))
-					if json.has("cursor_pos"):
-						var cursor_comp: C_CursorPosition = player_entity.get_component(C_CursorPosition)
-						if cursor_comp:
-							var _str = json["cursor_pos"].trim_prefix("(").trim_suffix(")").split(",")
-							var vec = Vector2(float(_str[0]), float(_str[1]))
-							cursor_comp.position = vec
-					if json.has('fire'):
-						control_input.fire = bool(json.get("fire"))
-					if json.has('fire_mode'):
-						control_input.fire_mode = int(json.get("fire_mode"))
+func _handle_message(server: C_ServerIP, ps: PeerState, raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
+	var header := NetProtocol.read_header(buf)
+	match header.msg_type:
+		NetProtocol.MSG_HELLO:
+			if not ps.reliable.on_receive(header.seq, raw):
+				NetLog.d("recv", "dup HELLO seq=%d" % header.seq)
+				return
+			_handle_hello(server, ps, buf)
+			_send_ack(ps, header.seq)
+		NetProtocol.MSG_INPUT:
+			_handle_input(server, ps, buf)
+		NetProtocol.MSG_PING:
+			_handle_ping(ps, header, buf)
+		NetProtocol.MSG_ACK:
+			ps.reliable.on_ack(header.seq)
+		_:
+			NetLog.d("warn", "unknown msg_type=%d" % header.msg_type)
+
+func _handle_hello(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> void:
+	ps.nick = NetProtocol.read_string(buf)
+	ps.spawn_pos = Vector2(buf.get_float(), buf.get_float())
+	ps.session_id = randi()
+	ps.net_id = server.allocate_net_id()
+	ps.touch()
+
+	server.sessions[ps.session_id] = ps
+	NetLog.d("server", "HELLO nick=%s session=%d net_id=%d" % [ps.nick, ps.session_id, ps.net_id])
+
+	# Тело WELCOME без заголовка
+	var body := StreamPeerBuffer.new()
+	body.put_u32(ps.session_id)
+	body.put_u16(ps.net_id)
+	body.put_u8(NetConfig.SERVER_TICK_RATE)
+	body.put_float(NetConfig.MAP_MIN.x)
+	body.put_float(NetConfig.MAP_MIN.y)
+	body.put_float(NetConfig.MAP_MAX.x)
+	body.put_float(NetConfig.MAP_MAX.y)
+	ps.queue_reliable(NetProtocol.MSG_WELCOME, body.data_array)
+
+	# Запрос на спавн (обработает NetworkPeerRegistrationSystem)
+	ps.needs_spawn = true
+
+func _handle_input(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> void:
+	var acked_tick := buf.get_u16()
+	ps.last_acked_input_seq = acked_tick
+	var throttle := NetProtocol.dequant_axis(buf.get_u8())
+	var turn := NetProtocol.dequant_axis(buf.get_u8())
+	var flags := buf.get_u8()
+	var cursor_x := buf.get_float()
+	var cursor_y := buf.get_float()
+
+	var e := server.get_entity(ps.net_id)
+	if e == null:
+		return
+	var input: C_ControlInput = e.get_component(C_ControlInput)
+	if input:
+		input.throttle = throttle
+		input.turn = turn
+		input.brake = (flags & 1) != 0
+	var cursor: C_CursorPosition = e.get_component(C_CursorPosition)
+	if cursor:
+		cursor.position = Vector2(cursor_x, cursor_y)
+
+func _handle_ping(ps: PeerState, header: Dictionary, buf: StreamPeerBuffer) -> void:
+	var client_time := buf.get_u32()
+	var pong := StreamPeerBuffer.new()
+	NetProtocol.write_header(pong, NetProtocol.MSG_PONG, header.seq)
+	pong.put_u32(client_time)
+	pong.put_u32(Time.get_ticks_msec())
+	ps.udp_peer.put_packet(pong.data_array)
+
+func _send_ack(ps: PeerState, acked_seq: int) -> void:
+	var buf := StreamPeerBuffer.new()
+	NetProtocol.write_header(buf, NetProtocol.MSG_ACK, acked_seq)
+	ps.udp_peer.put_packet(buf.data_array)
+
+func _disconnect_peer(server: C_ServerIP, peer: PacketPeerUDP) -> void:
+	var ps: PeerState = server.peers.get(peer)
+	if ps == null:
+		return
+	NetLog.d("server", "disconnect net_id=%d" % ps.net_id)
+	var e: Entity = server.get_entity(ps.net_id)
+	if e:
+		var es := C_ExistenceState.new()
+		es.value = 0
+		e.add_component(es)
+	if ps.udp_peer:
+		ps.udp_peer.close()
+	server.peers.erase(peer)
+	server.sessions.erase(ps.session_id)
+	peer.close()

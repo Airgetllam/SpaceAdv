@@ -5,7 +5,7 @@ func query() -> QueryBuilder:
 	return q.with_all([C_RigidBody, C_Force])
 
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var body: C_RigidBody = entity.get_component(C_RigidBody)
 		var force: C_Force = entity.get_component(C_Force)

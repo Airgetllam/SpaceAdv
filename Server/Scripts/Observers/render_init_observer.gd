@@ -5,7 +5,7 @@ func query() -> QueryBuilder:
 	return q.with_all([C_Multimesh]).on_added()
 
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var definition: C_Multimesh = entity.get_component(C_Multimesh)
 	var polygon = _remove_collinear_points(_get_outline_points(definition.all_blocks))
 	var parent: C_RigidBody = entity.get_component(C_RigidBody)
@@ -13,8 +13,7 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 		parent.node[0].add_child(definition.multimesh[i])
 	cmd.add_component(entity, C_Blocks.new(definition.blocks_map))
 	cmd.add_component(entity, C_Collider.new(polygon))
-	
-	print('[RenderInitObserver] C_Blocks, C_Collider были добавлены к сущности c ID ', entity.id)
+
  
 
 func _get_outline_points(all_blocks: Array) -> Array[Vector2]:

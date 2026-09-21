@@ -4,8 +4,7 @@ class_name UserSpawnRequestObserver
 func query() -> QueryBuilder:
 	return q.with_all([C_PeerID]).on_added()
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
-	var peer: C_PeerID = entity.get_component(C_PeerID)
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var comps = [
 		C_ExistenceState.new(),
 		C_Contact.new(),
@@ -17,6 +16,4 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 		C_Modules.new(),
 		C_Targets.new()
 	]
-	print('[UserSpawnRequestSystem] C_RigidBody, C_Position, C_Force, C_AngularVelocity, C_PhysicsPoint, C_ControlInput, C_Modules были присвоены peer ID: ', peer.value, '. ID сущности: ', entity.id)
 	cmd.add_components(entity, comps)
-	print('[UserSpawnRequestSystem] Игрок с peer ID ', peer.value, ' был добавлен на сервер')

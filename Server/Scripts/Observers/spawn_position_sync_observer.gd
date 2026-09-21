@@ -5,7 +5,7 @@ func query() -> QueryBuilder:
 	return q.with_all([C_SpawnPoint]).on_added()
 
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var spawn_pos: C_SpawnPoint = entity.get_component(C_SpawnPoint)
 	var pos: C_Position = entity.get_component(C_Position)
 	var dir: C_Direction = entity.get_component(C_Direction)

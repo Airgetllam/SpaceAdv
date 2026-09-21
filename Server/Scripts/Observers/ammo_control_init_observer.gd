@@ -11,7 +11,7 @@ const DIRS = [
 func query() -> QueryBuilder:
 	return q.with_all([C_Ammo]).on_added()
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var blocks_data: C_Blocks = entity.get_component(C_Blocks)
 	if not blocks_data:
 		return

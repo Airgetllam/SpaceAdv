@@ -29,5 +29,10 @@ const MAX_PACKETS_PER_PEER_PER_TICK: int = 10
 const MAX_ENTITIES_PER_STATE_PACKET: int = 64
 const MAX_RELIABLE_QUEUE: int = 256
 
+# Границы карты (для квантования позиции в uint16)
+const MAP_MIN := Vector2(-10000.0, -10000.0)
+const MAP_MAX := Vector2( 10000.0,  10000.0)
+const MAP_SIZE := Vector2(20000.0, 20000.0)  # MAP_MAX - MAP_MIN
+
 # Логирование
 const LOG_NETWORK_ARG: String = "--log-network"

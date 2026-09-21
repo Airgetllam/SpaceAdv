@@ -4,7 +4,7 @@ class_name DamageControlSystem
 func query() -> QueryBuilder:
 	return q.with_all([C_Blocks, C_DamagedBlock])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var blocks: C_Blocks = entity.get_component(C_Blocks)
 		var damaged_block: C_DamagedBlock = entity.get_component(C_DamagedBlock)

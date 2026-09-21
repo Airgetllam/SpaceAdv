@@ -4,7 +4,7 @@ class_name ExplosionSystem
 func query() -> QueryBuilder:
 	return q.with_all([C_Position, C_Damage, C_ExistenceState])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	var root = Engine.get_main_loop().root
 	if not root:
 		return

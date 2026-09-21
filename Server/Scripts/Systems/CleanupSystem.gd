@@ -5,7 +5,7 @@ func query() -> QueryBuilder:
 	# Находим все сущности с C_ExistenceState
 	return q.with_all([C_ExistenceState])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var state = entity.get_component(C_ExistenceState)
 		if state.value == 0:

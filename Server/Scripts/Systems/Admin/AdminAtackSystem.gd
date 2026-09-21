@@ -4,7 +4,7 @@ class_name AdminAtackSystem
 func query() -> QueryBuilder:
 	return q.with_all([C_ServerIP])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	for entity in entities:
 		var cursor: C_CursorPosition = entity.get_component(C_CursorPosition)
 		var targets: C_Targets = entity.get_component(C_Targets)

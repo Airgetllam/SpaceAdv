@@ -4,7 +4,7 @@ class_name RigidbodyInitObserver
 func query() -> QueryBuilder:
 	return q.with_all([C_RigidBody]).on_added()
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var pos: C_Position = entity.get_component(C_Position)
 	var dir: C_Direction = entity.get_component(C_Direction)
 	var body: C_RigidBody = entity.get_component(C_RigidBody)

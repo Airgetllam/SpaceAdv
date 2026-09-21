@@ -5,7 +5,7 @@ func query() -> QueryBuilder:
 	return q.with_all([C_Collider]).on_added()
 
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var entity_type: C_EntityType = entity.get_component(C_EntityType)
 	var collider: C_Collider = entity.get_component(C_Collider)
 	var body: C_RigidBody = entity.get_component(C_RigidBody)
@@ -21,4 +21,3 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 		new_collider.shape.radius = collider.polygon[0].x
 		new_collider.shape.height = collider.polygon[0].y
 		rig.add_child(new_collider)
-	print('[ColliderCreationObserver] collider был добавлен к сущности с ID ', entity.id)

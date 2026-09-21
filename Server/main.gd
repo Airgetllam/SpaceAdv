@@ -2,18 +2,19 @@ extends Node
 class_name Server
 
 @onready var _world = $World
-
+var _net_accum: float = 0.0
 
 func _ready() -> void:
 	ECS.world = _world
 
 	var systems := {
 		"cleanup": CleanupSystem.new(),
-		"timer": LifeTimerSystem.new(),
+		"life_timer": LifeTimerSystem.new(),
+		"net_control": NetworkControlSystem.new(),
+		"net_registration": NetworkPeerRegistrationSystem.new(),
 		"debug": AdminDebugVisualSystem.new(),
 		"debug_cleanup": AdminDebugCleanupSystem.new(),
-		"network_control": NetworkControlSystem.new(),
-		"peer_reg": NetworkPeerRegistrationSystem.new(),
+		"net_send": NetworkSendSystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
 		#"admin_interact": AdminInteractSystem.new(),
@@ -61,6 +62,7 @@ func _ready() -> void:
 	systems["admin_cursor_sync"].group = "admin"
 	systems["debug"].group = "admin"
 	systems["debug_cleanup"].group = "admin"
+	systems["net_send"].group = "network"
 
 	_create_entity('server', [
 		C_ServerIP.new(),
@@ -72,6 +74,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	ECS.process(delta)
+	_net_accum += delta
+	if _net_accum >= NetConfig.SERVER_TICK_DT:
+		_net_accum -= NetConfig.SERVER_TICK_DT
+		ECS.process(NetConfig.SERVER_TICK_DT, "network")
 
 
 func _physics_process(delta: float) -> void:

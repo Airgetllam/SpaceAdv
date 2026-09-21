@@ -7,7 +7,7 @@ var mouse_was_pressed: bool = false
 func query() -> QueryBuilder:
 	return q.with_all([C_CursorPosition, C_Targets])
 
-func process(entities: Array[Entity], _components: Array, delta: float) -> void:
+func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
 	var root = Engine.get_main_loop().root
 	if not root:
 		return

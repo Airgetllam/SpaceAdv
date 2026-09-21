@@ -9,7 +9,7 @@ func query() -> QueryBuilder:
 	return q.with_all([C_Modules]).on_added()
 
 
-func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
+func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	var modules: C_Modules = entity.get_component(C_Modules)
 	var blocks_data = []
 	var all_blocks = []
@@ -42,7 +42,6 @@ func each(event: Variant, entity: Entity, payload: Variant = null) -> void:
 	multimesh_component.blocks_map = blocks_map
 	multimesh_component.all_blocks = all_blocks
 	cmd.add_component(entity, multimesh_component)
-	print('[MultimeshCreationObserver] C_Multimesh был добавлен к сущности с ID ', entity.id)
 
 
 func _group_blocks_by_id(blocks: Array) -> Dictionary:
