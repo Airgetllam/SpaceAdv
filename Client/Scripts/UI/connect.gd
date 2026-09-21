@@ -38,6 +38,20 @@ const PING_INTERVAL: float = 1.0
 const SPAWN_X: float = 200.0
 const SPAWN_Y: float = 200.0
 var _reliable_recv: ReliableChannel = ReliableChannel.new()
+var _mirror_entities: Dictionary = {}   # net_id -> { kind, pos, rot, hp, hp_max, size, blocks/mask }
+
+# Интерполяция чужих сущностей
+const INTERP_DURATION: float = 0.1   # 2 серверных тика
+
+# Для собственного корабля — последнее серверное состояние
+var _last_server_pos: Vector2 = Vector2.ZERO
+var _last_server_rot: float = 0.0
+var _last_server_hp: int = 0
+var _last_server_hp_max: int = 0
+var _last_acked_input_seq: int = 0
+
+# Счётчик тиков для отладки
+var _last_server_tick: int = 0
 
 func _ready() -> void:
 	connect_button.pressed.connect(_on_connect_pressed)
@@ -55,6 +69,7 @@ func _process(delta: float) -> void:
 		var buf := StreamPeerBuffer.new()
 		buf.data_array = raw
 		_handle_packet(raw, buf)
+	_update_interpolation(delta)
 
 	# 2. Ретрансмит HELLO, пока не получили WELCOME или ACK
 	if _state == State.WAITING_WELCOME and not _hello_acked:
@@ -83,6 +98,28 @@ func _process(delta: float) -> void:
 			_ping_accum = 0.0
 			_send_ping()
 
+func _update_interpolation(delta: float) -> void:
+	var step: float = delta / INTERP_DURATION
+	for net_id in _mirror_entities.keys():
+		if net_id == _net_id:
+			continue
+		var entry: Dictionary = _mirror_entities[net_id]
+		if not entry.get("has_target", false):
+			continue
+		var t: float = min(entry.get("interp_t", 0.0) + step, 1.0)
+		entry["interp_t"] = t
+
+		var prev_pos: Vector2 = entry.get("prev_pos", entry.get("curr_pos", Vector2.ZERO))
+		var curr_pos: Vector2 = entry.get("curr_pos", prev_pos)
+		var prev_rot: float = entry.get("prev_rot", entry.get("curr_rot", 0.0))
+		var curr_rot: float = entry.get("curr_rot", prev_rot)
+
+		var pos: Vector2 = prev_pos.lerp(curr_pos, t)
+		var rot: float = lerp_angle(prev_rot, curr_rot, t)
+
+		entry["pos"] = pos
+		entry["rot"] = rot
+		_mirror_entities[net_id] = entry
 
 func _on_connect_pressed() -> void:
 	if _state != State.IDLE:
@@ -137,12 +174,18 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 	var header := NetProtocol.read_header(buf)
 	match header.msg_type:
 		NetProtocol.MSG_WELCOME:
-			# Дедупликация: обрабатываем только первое получение
 			if _reliable_recv.on_receive(header.seq, raw):
 				_on_welcome(buf)
-			# ACK отправляем ВСЕГДА — даже для дубликатов.
-			# Если наш ACK потерялся, а сервер повторил, мы должны ответить снова,
-			# иначе сервер будет ретранслировать до give up.
+			_send_ack(header.seq)
+
+		NetProtocol.MSG_SPAWN:
+			if _reliable_recv.on_receive(header.seq, raw):
+				_on_spawn(buf)
+			_send_ack(header.seq)
+
+		NetProtocol.MSG_DESPAWN:
+			if _reliable_recv.on_receive(header.seq, raw):
+				_on_despawn(buf)
 			_send_ack(header.seq)
 
 		NetProtocol.MSG_PONG:
@@ -151,9 +194,140 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 		NetProtocol.MSG_ACK:
 			_on_ack(header.seq)
 
+		NetProtocol.MSG_STATE:
+			_on_state(buf)
+
 		_:
 			NetLog.d("client", "unhandled msg_type=%d" % header.msg_type)
 
+func _on_state(buf: StreamPeerBuffer) -> void:
+	var tick: int = buf.get_u16()
+	var acked_input_seq: int = buf.get_u16()
+	var count: int = buf.get_u8()
+
+	_last_server_tick = tick
+	_last_acked_input_seq = acked_input_seq
+
+	for _i in count:
+		var net_id: int = buf.get_u16()
+		var mask: int = buf.get_u8()
+
+		var has_pos: bool = (mask & 1) != 0
+		var has_rot: bool = (mask & 2) != 0
+		var has_hp: bool  = (mask & 4) != 0
+		var has_vel: bool = (mask & 8) != 0
+
+		var qx: int = 0
+		var qy: int = 0
+		if has_pos:
+			qx = buf.get_u16()
+			qy = buf.get_u16()
+		var qrot: int = buf.get_u16() if has_rot else 0
+		var hp: int = buf.get_u16() if has_hp else 0
+		var vx: int = 0
+		var vy: int = 0
+		if has_vel:
+			vx = buf.get_16()
+			vy = buf.get_16()
+
+		var entry: Dictionary = _mirror_entities.get(net_id, {})
+		if entry.is_empty():
+			# Пришёл STATE для сущности, которую ещё не SPAWN-или — игнор
+			continue
+
+		var world_pos: Vector2 = entry.get("pos", Vector2.ZERO)
+		var world_rot: float = entry.get("rot", 0.0)
+
+		if has_pos:
+			world_pos = NetProtocol.dequant_pos(
+				Vector2i(qx, qy), ClientSession.map_min, ClientSession.map_max
+			)
+		if has_rot:
+			world_rot = NetProtocol.dequant_rot(qrot)
+		if has_hp:
+			entry["hp"] = hp
+
+		if net_id == _net_id:
+			# Локальный игрок: сохраняем серверное состояние
+			# (client-side prediction в Этапе 5)
+			_last_server_pos = world_pos
+			_last_server_rot = world_rot
+			_last_server_hp = entry.get("hp", 0)
+			_last_server_hp_max = entry.get("hp_max", 0)
+			entry["pos"] = world_pos
+			entry["rot"] = world_rot
+		else:
+			# Чужая сущность: обновляем цель интерполяции
+			entry["prev_pos"] = entry.get("curr_pos", world_pos)
+			entry["prev_rot"] = entry.get("curr_rot", world_rot)
+			entry["curr_pos"] = world_pos
+			entry["curr_rot"] = world_rot
+			entry["interp_t"] = 0.0
+			entry["has_target"] = true
+
+		_mirror_entities[net_id] = entry
+
+func _on_spawn(buf: StreamPeerBuffer) -> void:
+	var net_id       := buf.get_u16()
+	var kind         := buf.get_u8()
+	var owner_net_id := buf.get_u16()
+	var px           := buf.get_float()
+	var py           := buf.get_float()
+	var rot          := NetProtocol.dequant_rot(buf.get_u16())
+	var hp           := buf.get_u16()
+	var hp_max       := buf.get_u16()
+	var size_x       := buf.get_u16()
+	var size_y       := buf.get_u16()
+	var block_count  := buf.get_u16()
+
+	var is_owner := (net_id == _net_id)
+
+	var entry := {
+		"net_id": net_id,
+		"kind": kind,
+		"owner_net_id": owner_net_id,
+		"pos": Vector2(px, py),
+		"rot": rot,
+		"hp": hp,
+		"hp_max": hp_max,
+		"size": Vector2(size_x, size_y),
+		"block_count": block_count,
+	}
+
+	if block_count > 0 and is_owner:
+		# Полный список блоков
+		var blocks: Array = []
+		for i in block_count:
+			var bx := buf.get_float()
+			var by := buf.get_float()
+			var bid := buf.get_u8()
+			var bhp := buf.get_u16()
+			blocks.append({ "pos": Vector2(bx, by), "id": bid, "hp": bhp })
+		entry["blocks"] = blocks
+		NetLog.d("client", "SPAWN own ship net_id=%d hp=%d/%d blocks=%d" % [
+			net_id, hp, hp_max, block_count
+		])
+	elif block_count > 0:
+		var mask_bytes := int(ceil(float(block_count) / 8.0))
+		var data_res: Array = buf.get_data(mask_bytes)
+		if data_res[0] != OK:
+			NetLog.d("client", "SPAWN: get_data failed (mask_bytes=%d)" % mask_bytes)
+			return
+		var mask: PackedByteArray = data_res[1]
+		entry["alive_mask"] = mask
+		NetLog.d("client", "SPAWN ship net_id=%d hp=%d/%d blocks=%d mask=%s" % [
+			net_id, hp, hp_max, block_count, mask.hex_encode()
+		])
+	else:
+		NetLog.d("client", "SPAWN net_id=%d kind=%d (no blocks)" % [net_id, kind])
+
+	_mirror_entities[net_id] = entry
+
+
+func _on_despawn(buf: StreamPeerBuffer) -> void:
+	var net_id := buf.get_u16()
+	_mirror_entities.erase(net_id)
+	NetLog.d("client", "DESPAWN net_id=%d (mirror size=%d)" % [net_id, _mirror_entities.size()])
 
 func _on_welcome(buf: StreamPeerBuffer) -> void:
 	var session_id := buf.get_u32()

@@ -15,6 +15,7 @@ func _ready() -> void:
 		"debug": AdminDebugVisualSystem.new(),
 		"debug_cleanup": AdminDebugCleanupSystem.new(),
 		"net_send": NetworkSendSystem.new(),
+		"aoi": AOISystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
 		#"admin_interact": AdminInteractSystem.new(),
@@ -35,6 +36,7 @@ func _ready() -> void:
 	}
 
 	var observers := [
+		NetIdAssignObserver.new(),
 		UserSpawnRequestObserver.new(),
 		SpawnPositionSyncObserver.new(),
 		MultimeshCreationObserver.new(),

@@ -14,7 +14,6 @@ func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	cmd.add_component(entity, C_Blocks.new(definition.blocks_map))
 	cmd.add_component(entity, C_Collider.new(polygon))
 
- 
 
 func _get_outline_points(all_blocks: Array) -> Array[Vector2]:
 	var cell_size = ServerConfig.CELL_SIZE

@@ -1,14 +1,18 @@
 class_name C_ServerIP
 extends Component
 
+static var instance: C_ServerIP = null
+
 var UDP_connection: Array = []
 var peers: Dictionary = {}          # PacketPeerUDP -> PeerState
 var sessions: Dictionary = {}       # session_id(int) -> PeerState
 var net_id_counter: int = 1
 var net_id_to_entity: Dictionary = {}   # int -> Entity
 var entity_to_net_id: Dictionary = {}   # Entity -> int
+var tick: int = 0
 
 func _init() -> void:
+	instance = self
 	var server := UDPServer.new()
 	var err := server.listen(NetConfig.SERVER_PORT)
 	if err != OK:
