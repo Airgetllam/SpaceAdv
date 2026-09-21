@@ -87,6 +87,15 @@ func _queue_spawn(server: C_ServerIP, ps: PeerState, net_id: int) -> void:
 	var entity = server.get_entity(net_id)
 	if not is_instance_valid(entity):
 		return
+
+	# Снаряды приходят через MSG_FIRE от ProjectileSpawnObserver.
+	# SPAWN для них не отправляем, но регистрируем в visible_net_ids
+	# (это делает вызывающий код через ps.visible_net_ids = current_visible),
+	# чтобы AOI корректно сгенерировал MSG_DESPAWN при их исчезновении.
+	var et: C_EntityType = entity.get_component(C_EntityType)
+	if et != null and et.value == "projectile":
+		return
+
 	var payload := _build_spawn_payload(server, ps, entity, net_id)
 	if payload.is_empty():
 		return

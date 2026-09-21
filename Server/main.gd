@@ -20,6 +20,7 @@ func _ready() -> void:
 		"admin_atack": AdminAtackSystem.new(),
 		"cursor_interaction": CursorInteractionSystem.new(),
 		"movement": MovementSystem.new(),
+		"player_fire": PlayerFireSystem.new(),
 		"transform_sync": TransformSyncSystem.new(),
 		"velocity_apply": VelocityApplySystem.new(),
 		"damage_control": DamageControlSystem.new(),
@@ -33,6 +34,7 @@ func _ready() -> void:
 
 	var observers := [
 		NetIdAssignObserver.new(),
+		ProjectileSpawnObserver.new(),
 		UserSpawnRequestObserver.new(),
 		SpawnPositionSyncObserver.new(),
 		MultimeshCreationObserver.new(),
@@ -57,6 +59,7 @@ func _ready() -> void:
 	systems["debug_cleanup"].group = "admin"
 	systems["net_send"].group = "network"
 	systems["movement"].group = "physics"
+	systems["player_fire"].group = "physics"
 
 	_create_entity('server', [
 		C_ServerIP.new(),

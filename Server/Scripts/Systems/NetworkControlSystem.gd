@@ -124,6 +124,11 @@ func _handle_input(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> 
 	var cursor: C_CursorPosition = e.get_component(C_CursorPosition)
 	if cursor:
 		cursor.position = Vector2(cursor_x, cursor_y)
+		# fire (bit1) и fire_mode (bits2-3) из flags — клиент их уже присылает
+	var ci: C_ControlInput = e.get_component(C_ControlInput)
+	if ci != null:
+		ci.fire = (flags & 2) != 0
+		ci.fire_mode = (flags >> 2) & 3
 
 func _handle_ping(ps: PeerState, header: Dictionary, buf: StreamPeerBuffer) -> void:
 	var client_time := buf.get_u32()

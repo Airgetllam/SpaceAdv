@@ -40,6 +40,8 @@ const SPAWN_Y: float = 200.0
 var _reliable_recv: ReliableChannel = ReliableChannel.new()
 var _mirror_entities: Dictionary = {}   # net_id -> { kind, pos, rot, hp, hp_max, size, blocks/mask }
 
+var _projectile_multimesh: MultiMeshInstance2D = null
+
 # Интерполяция чужих сущностей
 const INTERP_DURATION: float = 0.1   # 2 серверных тика
 
@@ -115,6 +117,27 @@ func _process(delta: float) -> void:
 			_ping_accum = 0.0
 			_send_ping()
 	_sync_local_mirror()
+	if _state == State.IN_GAME:
+		_render_projectiles()
+
+func _render_projectiles() -> void:
+	if _projectile_multimesh == null:
+		return
+	var mm: MultiMesh = _projectile_multimesh.multimesh
+	if mm == null:
+		return
+	var idx := 0
+	for nid in _mirror_entities.keys():
+		var e: Dictionary = _mirror_entities[nid]
+		if not e.get("is_projectile", false):
+			continue
+		if idx >= mm.instance_count:
+			break
+		var pos: Vector2 = e.get("pos", Vector2.ZERO)
+		var rot: float   = e.get("rot", 0.0)
+		mm.set_instance_transform_2d(idx, Transform2D(rot, pos))
+		idx += 1
+	mm.visible_instance_count = idx
 
 func _sync_local_mirror() -> void:
 	if not _pred_initialized:
@@ -133,7 +156,12 @@ func _do_input_tick() -> void:
 	var throttle_raw := Input.get_axis("thrust_down", "thrust_up")
 	var turn_raw := Input.get_axis("rotate_minus", "rotate_plus")
 	var brake := Input.is_action_pressed("inertia_break")
-	var fire := Input.is_action_pressed("fire")
+	var fire_mode_1 := Input.is_action_pressed("fire")          # по очереди
+	var fire_mode_2 := Input.is_action_pressed("fire_alt")      # залп
+	var fire := fire_mode_1 or fire_mode_2
+	var fire_mode := 1
+	if fire_mode_2:
+		fire_mode = 2
 
 	var throttle_q: int = NetProtocol.quant_axis(throttle_raw)
 	var turn_q: int = NetProtocol.quant_axis(turn_raw)
@@ -184,6 +212,7 @@ func _do_input_tick() -> void:
 	var flags := 0
 	if brake: flags |= 1
 	if fire:  flags |= 2
+	flags |= (fire_mode & 3) << 2
 
 	var buf := StreamPeerBuffer.new()
 	NetProtocol.write_header(buf, NetProtocol.MSG_INPUT, 0)
@@ -293,6 +322,11 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 
 		NetProtocol.MSG_STATE:
 			_on_state(buf)
+
+		NetProtocol.MSG_FIRE:
+			if _reliable_recv.on_receive(header.seq, raw):
+				_on_fire(buf)
+			_send_ack(header.seq)
 
 		_:
 			NetLog.d("client", "unhandled msg_type=%d" % header.msg_type)
@@ -418,6 +452,27 @@ func _reconcile(acked_seq: int, server_pos: Vector2, server_rot: float, server_v
 
 	NetLog.d("reconcile", "acked=%d pending=%d" % [acked_seq, _input_history.size()])
 
+func _on_fire(buf: StreamPeerBuffer) -> void:
+	var proj_net_id := buf.get_u16()
+	var shooter_net_id := buf.get_u16()
+	var sx := buf.get_float()
+	var sy := buf.get_float()
+	var rot := NetProtocol.dequant_rot(buf.get_u16())
+	var target_net_id := buf.get_u16()
+
+	var entry: Dictionary = _mirror_entities.get(proj_net_id, {})
+	entry["net_id"] = proj_net_id
+	entry["kind"] = 2
+	entry["is_projectile"] = true
+	entry["owner_net_id"] = shooter_net_id
+	entry["pos"] = Vector2(sx, sy)
+	entry["rot"] = rot
+	entry["target_net_id"] = target_net_id
+	_mirror_entities[proj_net_id] = entry
+	NetLog.d("client", "FIRE net_id=%d shooter=%d pos=(%.1f,%.1f) rot=%.2f" % [
+		proj_net_id, shooter_net_id, sx, sy, rot
+	])
+
 func _on_spawn(buf: StreamPeerBuffer) -> void:
 	var net_id       := buf.get_u16()
 	var kind         := buf.get_u8()
@@ -444,6 +499,9 @@ func _on_spawn(buf: StreamPeerBuffer) -> void:
 		"size": Vector2(size_x, size_y),
 		"block_count": block_count,
 	}
+
+	if kind == 2:
+		entry["is_projectile"] = true
 
 	if block_count > 0 and is_owner:
 		# Полный список блоков
@@ -510,6 +568,24 @@ func _on_welcome(buf: StreamPeerBuffer) -> void:
 	ClientSession.udp = _udp
 	
 	_last_reconciled_seq = 0
+	_create_projectile_multimesh()
+
+func _create_projectile_multimesh() -> void:
+	if _projectile_multimesh != null:
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_2D
+	mm.use_colors = true
+	mm.instance_count = 256
+	var quad := QuadMesh.new()
+	quad.size = Vector2(8, 8)
+	mm.mesh = quad
+	for i in mm.instance_count:
+		mm.set_instance_color(i, Color.YELLOW)
+	_projectile_multimesh = MultiMeshInstance2D.new()
+	_projectile_multimesh.multimesh = mm
+	_projectile_multimesh.z_index = 10
+	add_child(_projectile_multimesh)
 
 
 func _on_pong(buf: StreamPeerBuffer) -> void:
@@ -523,37 +599,6 @@ func _on_ack(seq: int) -> void:
 	if seq == _hello_seq:
 		_hello_acked = true
 		NetLog.d("client", "HELLO acked")
-
-
-func _send_input() -> void:
-	var throttle := Input.get_axis("thrust_down", "thrust_up")
-	var turn := Input.get_axis("rotate_minus", "rotate_plus")
-	var brake := Input.is_action_pressed("inertia_break")
-	var fire := Input.is_action_pressed("fire")
-	var fire_mode := false  # TODO: вторая кнопка
-
-	var mouse_pos := get_viewport().get_mouse_position()
-	var camera := get_viewport().get_camera_2d()
-	var world_pos := mouse_pos if camera == null else camera.get_screen_center_position() \
-		+ (mouse_pos - get_viewport_rect().size * 0.5)
-
-	var flags := 0
-	if brake:     flags |= 1
-	if fire:      flags |= 2
-	if fire_mode: flags |= 4
-
-	var buf := StreamPeerBuffer.new()
-	NetProtocol.write_header(buf, NetProtocol.MSG_INPUT, _input_seq)
-	_input_seq = (_input_seq + 1) & 0xFFFF
-	if _input_seq == 0:
-		_input_seq = 1
-	buf.put_u16(0)  # acked_tick (пока 0; см. Этап 4)
-	buf.put_u8(NetProtocol.quant_axis(throttle))
-	buf.put_u8(NetProtocol.quant_axis(turn))
-	buf.put_u8(flags)
-	buf.put_float(world_pos.x)
-	buf.put_float(world_pos.y)
-	_udp.put_packet(buf.data_array)
 
 
 func _send_ping() -> void:
