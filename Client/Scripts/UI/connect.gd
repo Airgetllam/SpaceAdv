@@ -77,6 +77,9 @@ var _last_reconciled_seq: int = 0
 func _ready() -> void:
 	connect_button.pressed.connect(_on_connect_pressed)
 
+func _physics_process(_delta: float) -> void:
+	if _state != State.IDLE:
+		_poll_packets()
 
 func _process(delta: float) -> void:
 	if _state == State.IDLE:
@@ -90,6 +93,7 @@ func _process(delta: float) -> void:
 		var buf := StreamPeerBuffer.new()
 		buf.data_array = raw
 		_handle_packet(raw, buf)
+	_poll_packets()
 	_update_interpolation(delta)
 
 	# 2. Ретрансмит HELLO, пока не получили WELCOME или ACK
@@ -119,6 +123,15 @@ func _process(delta: float) -> void:
 	_sync_local_mirror()
 	if _state == State.IN_GAME:
 		_render_projectiles()
+
+func _poll_packets() -> void:
+	while _udp.get_available_packet_count() > 0:
+		var raw: PackedByteArray = _udp.get_packet()
+		if raw.is_empty():
+			break
+		var buf := StreamPeerBuffer.new()
+		buf.data_array = raw
+		_handle_packet(raw, buf)
 
 func _render_projectiles() -> void:
 	if _projectile_multimesh == null:
@@ -468,7 +481,16 @@ func _on_fire(buf: StreamPeerBuffer) -> void:
 	entry["pos"] = Vector2(sx, sy)
 	entry["rot"] = rot
 	entry["target_net_id"] = target_net_id
+	# Интерполяция снаряда: стартуем «на месте», дальше MSG_STATE (10 Гц)
+	# будет двигать prev/curr, а _update_interpolation — плавно тянуть.
+	entry["prev_pos"] = Vector2(sx, sy)
+	entry["curr_pos"] = Vector2(sx, sy)
+	entry["prev_rot"] = rot
+	entry["curr_rot"] = rot
+	entry["interp_t"] = 1.0
+	entry["has_target"] = true
 	_mirror_entities[proj_net_id] = entry
+
 	NetLog.d("client", "FIRE net_id=%d shooter=%d pos=(%.1f,%.1f) rot=%.2f" % [
 		proj_net_id, shooter_net_id, sx, sy, rot
 	])

@@ -29,6 +29,16 @@ const MAX_PACKETS_PER_PEER_PER_TICK: int = 10
 const MAX_ENTITIES_PER_STATE_PACKET: int = 64
 const MAX_RELIABLE_QUEUE: int = 256
 
+# AOI / приоритизация
+const AOI_REFRESH_TICKS: int = 2           # пересчёт видимости раз в 2 серверных тика
+const NEAR_RADIUS: float = 800.0
+const MID_RADIUS: float = 1600.0
+const PROJECTILE_UPDATE_INTERVAL: int = 2  # снаряды шлём раз в 2 тика (10 Гц)
+
+# Лимиты пакетов (заменяют хардкод в NetworkSendSystem)
+const MAX_STATE_PACKET_BYTES: int = 1100   # держим MSG_STATE < MTU 1200
+const MAX_RELIABLE_PER_TICK: int = 16      # защита от всплесков MSG_FIRE
+
 # Границы карты (для квантования позиции в uint16)
 const MAP_MIN := Vector2(-10000.0, -10000.0)
 const MAP_MAX := Vector2( 10000.0,  10000.0)

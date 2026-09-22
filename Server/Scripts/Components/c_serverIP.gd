@@ -10,6 +10,7 @@ var net_id_counter: int = 1
 var net_id_to_entity: Dictionary = {}   # int -> Entity
 var entity_to_net_id: Dictionary = {}   # Entity -> int
 var tick: int = 0
+var aoi_tick: int = 0
 
 func _init() -> void:
 	instance = self

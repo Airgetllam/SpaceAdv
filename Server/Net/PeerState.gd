@@ -7,6 +7,7 @@ var net_id: int = 0
 var reliable: ReliableChannel = ReliableChannel.new()
 var last_recv_ms: int = 0
 var last_rtt_ms: int = 0
+var despawned_net_ids: Dictionary = {}
 
 # --- Input queue (server applies 1 per MovementSystem step) ---
 var input_queue: Array = []                 # [{ seq, throttle, turn, brake }]
@@ -22,6 +23,7 @@ var acked_initialized: bool = false
 var visible_net_ids: Dictionary = {}
 var last_sent_state: Dictionary = {}
 var reliable_outbox: Array = []
+var last_aoi_tick: int = -1000
 
 # Спавн
 var needs_spawn: bool = false

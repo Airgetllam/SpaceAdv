@@ -8,10 +8,20 @@ func query() -> QueryBuilder:
 	return q.with_all([C_EntityType]).on_added()
 
 func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
+	if entity.has_component(C_EntityType):
+		var _et = entity.get_component(C_EntityType)
+		if _et != null and _et.value == "projectile":
+			NetLog.d("netid", "observer FIRED for projectile entity=%s (has_netid=%s)" % [
+				entity.name, str(entity.has_component(C_NetId))
+			])
 	var server := C_ServerIP.instance
 	if server == null:
 		NetLog.d("warn", "NetIdAssignObserver: no server instance")
 		return
+
+	if entity.has_meta("_netid_assigned"):
+		return
+	entity.set_meta("_netid_assigned", true)
 
 	if entity.has_component(C_NetId):
 		# Уже назначен (игрок получает net_id из PeerState)

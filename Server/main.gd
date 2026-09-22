@@ -14,8 +14,8 @@ func _ready() -> void:
 		"net_registration": NetworkPeerRegistrationSystem.new(),
 		"debug": AdminDebugVisualSystem.new(),
 		"debug_cleanup": AdminDebugCleanupSystem.new(),
-		"net_send": NetworkSendSystem.new(),
 		"aoi": AOISystem.new(),
+		"net_send": NetworkSendSystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
 		"cursor_interaction": CursorInteractionSystem.new(),
@@ -57,6 +57,7 @@ func _ready() -> void:
 	systems["admin_cursor_sync"].group = "admin"
 	systems["debug"].group = "admin"
 	systems["debug_cleanup"].group = "admin"
+	systems["aoi"].group = "network"
 	systems["net_send"].group = "network"
 	systems["movement"].group = "physics"
 	systems["player_fire"].group = "physics"

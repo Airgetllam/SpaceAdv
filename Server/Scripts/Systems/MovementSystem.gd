@@ -49,6 +49,9 @@ func _step_one(e: Entity, dt: float) -> void:
 	var out: Dictionary = MovementModel.step(s, input)
 
 	pos_c.value = out.pos
+	pos_c.value = Vector2(
+		clamp(pos_c.value.x, NetConfig.MAP_MIN.x + 64.0, NetConfig.MAP_MAX.x - 64.0),
+		clamp(pos_c.value.y, NetConfig.MAP_MIN.y + 64.0, NetConfig.MAP_MAX.y - 64.0))
 	dir_c.value = rad_to_deg(out.rot)
 	vel_c.value = out.vel
 	force_c.value = out.throttle

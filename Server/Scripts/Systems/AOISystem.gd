@@ -12,12 +12,14 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 	if server == null or server.peers.is_empty():
 		return
 
+	server.aoi_tick += 1
+	var cur_tick: int = server.aoi_tick
 	var aoi_sq: float = NetConfig.AOI_RADIUS * NetConfig.AOI_RADIUS
 
 	# Собираем готовые сущности один раз за тик.
 	# ВАЖНО: `e` — без типа (Entity), иначе assign из Dictionary
 	# на освобождённом объекте кидает "Trying to assign invalid …".
-	var ready: Array = []   # [ { net_id:int, pos:Vector2 } ]
+	var _ready: Array = []   # [ { net_id:int, pos:Vector2 } ]
 	for nid in server.net_id_to_entity.keys():
 		var e = server.net_id_to_entity.get(nid)
 		if not _is_ready(e):
@@ -25,11 +27,19 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 		var pc = e.get_component(C_Position)
 		if pc == null:
 			continue
-		ready.append({ "net_id": nid, "pos": pc.value })
+		_ready.append({ "net_id": nid, "pos": pc.value })
 
 	for ps in server.peers.values():
 		if ps.net_id == 0:
 			continue
+
+		# Кэш видимости: обновляем не каждый тик, а раз в AOI_REFRESH_TICKS.
+		# Между обновлениями ps.visible_net_ids остаётся прежним — MSG_STATE
+		# продолжает слать тех же сущностей, SPAWN/DESPAWN не генерируются.
+		if cur_tick - ps.last_aoi_tick < NetConfig.AOI_REFRESH_TICKS:
+			continue
+		ps.last_aoi_tick = cur_tick
+
 		var mine = server.get_entity(ps.net_id)
 		if not _is_ready(mine):
 			continue
@@ -39,7 +49,7 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 		var my_pos: Vector2 = my_pc.value
 
 		var current_visible: Dictionary = {}
-		for rec in ready:
+		for rec in _ready:
 			var other_pos: Vector2 = rec.pos
 			if my_pos.distance_squared_to(other_pos) <= aoi_sq:
 				current_visible[rec.net_id] = true
@@ -65,6 +75,9 @@ func _is_ready(entity) -> bool:
 		return false
 	if not entity.has_component(C_Position):
 		return false
+	var es = entity.get_component(C_ExistenceState)
+	if es == null or es.value == 0:
+		return false
 	var et = entity.get_component(C_EntityType)
 	if et == null:
 		return false
@@ -77,6 +90,9 @@ func _is_ready(entity) -> bool:
 
 
 func _queue_despawn(ps: PeerState, net_id: int) -> void:
+	if ps.despawned_net_ids.has(net_id):
+		return
+	ps.despawned_net_ids[net_id] = true
 	var body := StreamPeerBuffer.new()
 	body.put_u16(net_id)
 	ps.queue_reliable(NetProtocol.MSG_DESPAWN, body.data_array)
@@ -84,6 +100,7 @@ func _queue_despawn(ps: PeerState, net_id: int) -> void:
 
 
 func _queue_spawn(server: C_ServerIP, ps: PeerState, net_id: int) -> void:
+	ps.despawned_net_ids.erase(net_id)
 	var entity = server.get_entity(net_id)
 	if not is_instance_valid(entity):
 		return

@@ -1,8 +1,6 @@
 class_name NetworkSendSystem
 extends System
 
-const MAX_ENTITIES_PER_PACKET := 200
-
 func query() -> QueryBuilder:
 	return q.with_all([C_ServerIP])
 
@@ -20,12 +18,16 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 			# 1. Ретрансмит неподтверждённых надёжных
 			ps.reliable.tick(ps.udp_peer, now)
 
-			# 2. Отправка новых надёжных сообщений
-			for entry in ps.reliable_outbox:
+			# 2. Отправка новых надёжных — с rate-limit, чтобы всплеск
+			#    (например, залп из 36 MSG_FIRE) растянулся на несколько тиков
+			#    и не переполнил приёмный буфер клиента.
+			var sent := 0
+			while sent < NetConfig.MAX_RELIABLE_PER_TICK and not ps.reliable_outbox.is_empty():
+				var entry: Dictionary = ps.reliable_outbox.pop_front()
 				var packet: PackedByteArray = ps.reliable.enqueue(entry.msg_type, entry.body)
 				ps.udp_peer.put_packet(packet)
 				NetLog.d("send", "reliable msg=%d len=%d" % [entry.msg_type, packet.size()])
-			ps.reliable_outbox.clear()
+				sent += 1
 
 			# 3. Unreliable MSG_STATE
 			_send_state(server, ps)
@@ -35,11 +37,29 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 	if ps.net_id == 0:
 		return
 
+	# Позиция наблюдателя — для приоритизации по расстоянию
+	var my_e = server.get_entity(ps.net_id)
+	var my_pos := Vector2.ZERO
+	if is_instance_valid(my_e):
+		var my_pc: C_Position = my_e.get_component(C_Position)
+		if my_pc:
+			my_pos = my_pc.value
+
 	var deltas: Array = []
 	for nid in ps.visible_net_ids.keys():
 		var e = server.get_entity(nid)
 		if not is_instance_valid(e):
 			continue
+
+		var pc: C_Position = e.get_component(C_Position)
+		var dist_sq: float = INF
+		if pc != null:
+			dist_sq = my_pos.distance_squared_to(pc.value)
+
+		var interval := _update_interval(e, dist_sq)
+		if interval > 1 and (server.tick + nid) % interval != 0:
+			continue
+
 		var is_own: bool = (nid == ps.net_id)
 		var delta: PackedByteArray = _build_entity_delta(
 			e, ps.last_sent_state.get(nid, {}), ps, is_own
@@ -55,19 +75,51 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 	if deltas.is_empty():
 		return
 
+	# MTU-aware разбиение: набираем чанки, пока не упрёмся в лимит байт
+	# или в MAX_ENTITIES_PER_STATE_PACKET.
 	var i := 0
 	while i < deltas.size():
-		var chunk_end: int = min(i + MAX_ENTITIES_PER_PACKET, deltas.size())
+		var chunk: Array = []
+		var total_bytes := 0
+		var j := i
+		while j < deltas.size() and chunk.size() < NetConfig.MAX_ENTITIES_PER_STATE_PACKET:
+			var d: Dictionary = deltas[j]
+			var dbytes: PackedByteArray = d.bytes
+			if not chunk.is_empty() and total_bytes + dbytes.size() > NetConfig.MAX_STATE_PACKET_BYTES:
+				break
+			chunk.append(d)
+			total_bytes += dbytes.size()
+			j += 1
+
 		var buf := StreamPeerBuffer.new()
 		NetProtocol.write_header(buf, NetProtocol.MSG_STATE, 0)
 		buf.put_u16(server.tick)
 		buf.put_u16(ps.last_applied_input_seq)
-		buf.put_u8(chunk_end - i)
-		for j in range(i, chunk_end):
-			buf.put_data(deltas[j].bytes)
-			ps.last_sent_state[deltas[j].nid] = deltas[j].snap
+		buf.put_u8(chunk.size())
+		for d in chunk:
+			buf.put_data(d.bytes)
+			ps.last_sent_state[d.nid] = d.snap
 		ps.udp_peer.put_packet(buf.data_array)
-		i = chunk_end
+		i = j
+
+
+## Интервал обновления MSG_STATE для сущности.
+## Снаряды — всегда 2 тика (10 Гц), интерполируются на клиенте.
+## Остальные — по расстоянию: near (≤800) каждый тик, mid (≤1600) раз в 2,
+## far (>1600) раз в 4. Фаза (server.tick + nid) размазывает обновления,
+## чтобы не было пиков на одном тике.
+func _update_interval(e: Entity, dist_sq: float) -> int:
+	var et: C_EntityType = e.get_component(C_EntityType)
+	if et != null and et.value == "projectile":
+		return NetConfig.PROJECTILE_UPDATE_INTERVAL
+
+	var near_sq: float = NetConfig.NEAR_RADIUS * NetConfig.NEAR_RADIUS
+	var mid_sq: float = NetConfig.MID_RADIUS * NetConfig.MID_RADIUS
+	if dist_sq <= near_sq:
+		return 1
+	if dist_sq <= mid_sq:
+		return 2
+	return 4
 
 
 func _build_entity_delta(entity, prev: Dictionary, ps: PeerState, use_acked: bool) -> PackedByteArray:
