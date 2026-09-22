@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://mcxcfu27a3f5"]
+
+[ext_resource type="Script" uid="uid://cdu5tlyk72uu4" path="res://addons/gecs/ecs/world.gd" id="1_2rnt5"]
+[ext_resource type="Script" uid="uid://bgneowcd73317" path="res://Client/Scripts/Game.gd" id="1_m53vb"]
+
+[node name="Game" type="Node2D" unique_id=1697553591]
+script = ExtResource("1_m53vb")
+
+[node name="World" type="Node" parent="." unique_id=742002109]
+script = ExtResource("1_2rnt5")
+metadata/_custom_type_script = "uid://cdu5tlyk72uu4"
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=470277689]
+
+[node name="ProjectileMultiMesh" type="MultiMeshInstance2D" parent="." unique_id=388465258]
+
+[node name="ShipDebug" type="MultiMeshInstance2D" parent="." unique_id=606176302]

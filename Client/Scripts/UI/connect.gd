@@ -316,33 +316,15 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 			if _reliable_recv.on_receive(header.seq, raw):
 				_on_welcome(buf)
 			_send_ack(header.seq)
-
-		NetProtocol.MSG_SPAWN:
-			if _reliable_recv.on_receive(header.seq, raw):
-				_on_spawn(buf)
-			_send_ack(header.seq)
-
-		NetProtocol.MSG_DESPAWN:
-			if _reliable_recv.on_receive(header.seq, raw):
-				_on_despawn(buf)
-			_send_ack(header.seq)
-
-		NetProtocol.MSG_PONG:
-			_on_pong(buf)
-
 		NetProtocol.MSG_ACK:
 			_on_ack(header.seq)
-
-		NetProtocol.MSG_STATE:
-			_on_state(buf)
-
-		NetProtocol.MSG_FIRE:
-			if _reliable_recv.on_receive(header.seq, raw):
-				_on_fire(buf)
-			_send_ack(header.seq)
-
+		NetProtocol.MSG_PONG:
+			_on_pong(buf)
 		_:
-			NetLog.d("client", "unhandled msg_type=%d" % header.msg_type)
+			# Всё остальное (SPAWN/DESPAWN/FIRE/STATE) обрабатывается уже
+			# в Game.tscn. Здесь их НЕ подтверждаем — тогда сервер ретранслирует
+			# через 200 мс, когда Game-сцена уже загрузится и примет их.
+			NetLog.d("client", "ignored pre-game msg_type=%d" % header.msg_type)
 
 func _on_state(buf: StreamPeerBuffer) -> void:
 	var tick: int = buf.get_u16()
@@ -568,7 +550,7 @@ func _on_welcome(buf: StreamPeerBuffer) -> void:
 	var map_max    := Vector2(buf.get_float(), buf.get_float())
 
 	if _state == State.IN_GAME and session_id == _session_id:
-		return  # уже обработали
+		return
 
 	_session_id = session_id
 	_net_id     = net_id
@@ -579,18 +561,30 @@ func _on_welcome(buf: StreamPeerBuffer) -> void:
 	NetLog.d("client", "WELCOME session=%d net_id=%d tick=%d" % [_session_id, _net_id, _tick_rate])
 
 	_state = State.IN_GAME
-	_pred_initialized = false
 	_set_status("In game (net_id=%d)" % _net_id)
 
+	# Передача состояния в Game.tscn через autoload
 	ClientSession.session_id = _session_id
-	ClientSession.net_id = _net_id
-	ClientSession.tick_rate = _tick_rate
-	ClientSession.map_min = _map_min
-	ClientSession.map_max = _map_max
-	ClientSession.udp = _udp
-	
-	_last_reconciled_seq = 0
-	_create_projectile_multimesh()
+	ClientSession.net_id     = _net_id
+	ClientSession.tick_rate  = _tick_rate
+	ClientSession.map_min    = _map_min
+	ClientSession.map_max    = _map_max
+	ClientSession.udp        = _udp
+	ClientSession.reliable_recv = _reliable_recv
+	ClientSession.next_input_seq = 1
+	ClientSession.next_ping_seq = 1
+	ClientSession.net_id_to_entity.clear()
+	ClientSession.entity_to_net_id.clear()
+
+	# Переход в игровую сцену — отложенно, чтобы не менять сцену
+	# посреди _process.
+	call_deferred("_goto_game")
+
+
+func _goto_game() -> void:
+	NetLog.d("client", "switching to Game.tscn")
+	var err := get_tree().change_scene_to_file("res://Client/Scenes/Game.tscn")
+	NetLog.d("client", "change_scene result=%d" % err)
 
 func _create_projectile_multimesh() -> void:
 	if _projectile_multimesh != null:
