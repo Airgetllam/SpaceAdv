@@ -12,6 +12,7 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		var it: C_InterpTarget = e.get_component(C_InterpTarget)
 		if not it.has_target:
 			continue
+		var __nid = e.get_component(C_NetId)
 		it.t = min(it.t + step, 1.0)
 		var pos: Vector2 = it.prev_pos.lerp(it.curr_pos, it.t)
 		var rot: float = lerp_angle(it.prev_rot, it.curr_rot, it.t)

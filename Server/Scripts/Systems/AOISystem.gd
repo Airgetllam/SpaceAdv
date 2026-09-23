@@ -100,17 +100,12 @@ func _queue_despawn(ps: PeerState, net_id: int) -> void:
 
 
 func _queue_spawn(server: C_ServerIP, ps: PeerState, net_id: int) -> void:
-	ps.despawned_net_ids.erase(net_id)
 	var entity = server.get_entity(net_id)
 	if not is_instance_valid(entity):
 		return
-
-	# Снаряды приходят через MSG_FIRE от ProjectileSpawnObserver.
-	# SPAWN для них не отправляем, но регистрируем в visible_net_ids
-	# (это делает вызывающий код через ps.visible_net_ids = current_visible),
-	# чтобы AOI корректно сгенерировал MSG_DESPAWN при их исчезновении.
 	var et: C_EntityType = entity.get_component(C_EntityType)
 	if et != null and et.value == "projectile":
+		_queue_msg_fire(server, ps, entity, net_id)
 		return
 
 	var payload := _build_spawn_payload(server, ps, entity, net_id)
@@ -120,6 +115,40 @@ func _queue_spawn(server: C_ServerIP, ps: PeerState, net_id: int) -> void:
 	NetLog.d("aoi", "SPAWN net_id=%d → peer %d (owner=%s) blocks=%d" % [
 		net_id, ps.net_id, str(net_id == ps.net_id), _block_count(entity)
 	])
+
+
+func _queue_msg_fire(server: C_ServerIP, ps: PeerState, entity, net_id: int) -> void:
+	var pos_c: C_Position = entity.get_component(C_Position)
+	var spawn_pos: Vector2 = pos_c.value if pos_c else Vector2.ZERO
+	var angle_rad := 0.0
+	var dir_c: C_Direction = entity.get_component(C_Direction)
+	if dir_c != null:
+		angle_rad = deg_to_rad(dir_c.value)
+
+	var shooter_net := 0
+	var own: C_Owner = entity.get_component(C_Owner)
+	if own != null and not own.value.is_empty():
+		var sh = own.value[0]
+		if is_instance_valid(sh) and sh.has_component(C_NetId):
+			shooter_net = sh.get_component(C_NetId).value
+
+	var target_net := 0
+	var tgt: C_Target = entity.get_component(C_Target)
+	if tgt != null and not tgt.value.is_empty():
+		var te = tgt.value[0]
+		if is_instance_valid(te) and te.has_component(C_NetId):
+			target_net = te.get_component(C_NetId).value
+
+	var body := StreamPeerBuffer.new()
+	body.put_u16(net_id)
+	body.put_u16(shooter_net)
+	body.put_float(spawn_pos.x)
+	body.put_float(spawn_pos.y)
+	body.put_u16(NetProtocol.quant_rot(angle_rad))
+	body.put_u16(target_net)
+	ps.queue_reliable(NetProtocol.MSG_FIRE, body.data_array)
+	NetLog.d("aoi", "MSG_FIRE (late entry) net=%d shooter=%d -> peer=%d" % [net_id, shooter_net, ps.net_id])
+
 
 
 func _block_count(entity) -> int:
@@ -187,8 +216,11 @@ func _build_spawn_payload(server: C_ServerIP, viewer: PeerState,
 			body.put_float(kv.y)
 			body.put_u8(int(b.get("block_id", 0)))
 			body.put_u16(int(b.get("block_hp", 0)))
+			body.put_u16(int(b.get("block_hp_max", 0)))
 	else:
-		# Битовая маска живых блоков
+		# Битовая маска живых блоков + layout позиций в том же порядке.
+		# Порядок ключей blocks_map одинаков на сервере и в этом цикле,
+		# поэтому mask[idx] и layout[idx] относятся к одному блоку.
 		var mask_bytes := int(ceil(float(block_count) / 8.0))
 		var mask := PackedByteArray()
 		mask.resize(mask_bytes)
@@ -200,5 +232,18 @@ func _build_spawn_payload(server: C_ServerIP, viewer: PeerState,
 				mask[idx >> 3] |= (1 << (idx & 7))
 			idx += 1
 		body.put_data(mask)
+
+		# Layout: [int8 qx, int8 qy] × block_count.
+		# Позиции центрированы (шаг 0.5), поэтому умножаем на 2 → целое в int8 (±64 клетки).
+		for key in blocks_c.blocks_map.keys():
+			var b: Dictionary = blocks_c.blocks_map[key]
+			var kv: Vector2 = key
+			var qx := clampi(int(round(kv.x * 2.0)), -128, 127)
+			var qy := clampi(int(round(kv.y * 2.0)), -128, 127)
+			body.put_8(qx)
+			body.put_8(qy)
+			body.put_u16(int(b.get("block_hp", 0)))
+			body.put_u16(int(b.get("block_hp_max", 0)))
+
 
 	return body.data_array

@@ -2,6 +2,13 @@
 
 [ext_resource type="Script" uid="uid://cdu5tlyk72uu4" path="res://addons/gecs/ecs/world.gd" id="1_2rnt5"]
 [ext_resource type="Script" uid="uid://bgneowcd73317" path="res://Client/Scripts/Game.gd" id="1_m53vb"]
+[ext_resource type="Texture2D" uid="uid://dahuf84b61yk6" path="res://Server/Sprites/cian_placeholder.png" id="3_dttsi"]
+[ext_resource type="Texture2D" uid="uid://cfv4u4btycklo" path="res://Server/Sprites/gray_placeholder.png" id="4_lj2wy"]
+[ext_resource type="Texture2D" uid="uid://bydlshmblpxex" path="res://Server/Sprites/lightgray_placeholder.png" id="5_3n6lp"]
+[ext_resource type="Texture2D" uid="uid://cwvfuex2etwmw" path="res://Server/Sprites/missile.png" id="6_3x8h3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_6wpfs"]
+size = Vector2(250, 250)
 
 [node name="Game" type="Node2D" unique_id=1697553591]
 script = ExtResource("1_m53vb")
@@ -11,7 +18,32 @@ script = ExtResource("1_2rnt5")
 metadata/_custom_type_script = "uid://cdu5tlyk72uu4"
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=470277689]
+zoom = Vector2(0.5, 0.5)
 
 [node name="ProjectileMultiMesh" type="MultiMeshInstance2D" parent="." unique_id=388465258]
 
 [node name="ShipDebug" type="MultiMeshInstance2D" parent="." unique_id=606176302]
+
+[node name="CianPlaceholder" type="Sprite2D" parent="." unique_id=455114132]
+position = Vector2(-300, 300)
+texture = ExtResource("3_dttsi")
+
+[node name="GrayPlaceholder" type="Sprite2D" parent="." unique_id=764675353]
+position = Vector2(434, 93)
+texture = ExtResource("4_lj2wy")
+
+[node name="LightgrayPlaceholder" type="Sprite2D" parent="." unique_id=1349432473]
+position = Vector2(-254, -210)
+texture = ExtResource("5_3n6lp")
+
+[node name="RigidBody2D" type="RigidBody2D" parent="." unique_id=406430816]
+gravity_scale = 0.0
+contact_monitor = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D" unique_id=1817139972]
+position = Vector2(-583, -283)
+shape = SubResource("RectangleShape2D_6wpfs")
+
+[node name="Missile" type="Sprite2D" parent="." unique_id=2024984136]
+position = Vector2(313, 327)
+texture = ExtResource("6_3x8h3")

@@ -35,6 +35,10 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 			_on_state(buf)
 		NetProtocol.MSG_PONG:
 			_on_pong(buf)
+		NetProtocol.MSG_BLOCK_HP:
+			if ClientSession.reliable_recv.on_receive(header.seq, raw):
+				_on_block_hp(buf)
+			_send_ack(header.seq)
 		_:
 			NetLog.d("client", "unhandled msg_type=%d" % header.msg_type)
 
@@ -62,11 +66,12 @@ func _on_spawn(buf: StreamPeerBuffer) -> void:
 	var block_count  := buf.get_u16()
 
 	var is_owner := (net_id == ClientSession.net_id)
+	var spawn_pos := Vector2(px, py)
 
 	var entity := Entity.new()
 	entity.name = "ship_%d" % net_id
 	entity.add_component(_mk_netid(net_id))
-	entity.add_component(C_Position.new(Vector2(px, py)))
+	entity.add_component(C_Position.new(spawn_pos))
 	entity.add_component(C_Direction.new(rad_to_deg(rot_rad)))
 	entity.add_component(C_MirrorKind.new(kind, owner_net_id, 0))
 
@@ -77,35 +82,119 @@ func _on_spawn(buf: StreamPeerBuffer) -> void:
 	if is_owner:
 		entity.add_component(C_IsLocalPlayer.new())
 		var pred := C_PredictedState.new()
-		pred.pos = Vector2(px, py)
+		pred.pos = spawn_pos
 		pred.rot = rot_rad
 		pred.initialized = true
 		entity.add_component(pred)
 		entity.add_component(C_InputHistory.new())
-		entity.add_component(C_LastServerState.new())
 
-	if block_count > 0:
-		if is_owner:
+		var last_state := C_LastServerState.new()
+		last_state.pos = spawn_pos
+		last_state.rot = rot_rad
+		last_state.vel = Vector2.ZERO
+		last_state.last_acked_seq = 0
+		last_state.last_reconciled_seq = 0
+		last_state.dirty = false
+		entity.add_component(last_state)
+
+		# Owner: полный список блоков (pos float×2, id u8, hp u16)
+		if block_count > 0:
 			var blocks: Array = []
 			for i in block_count:
 				var bx := buf.get_float()
 				var by := buf.get_float()
 				var bid := buf.get_u8()
 				var bhp := buf.get_u16()
-				blocks.append({"pos": Vector2(bx, by), "id": bid, "hp": bhp})
+				var bhpmax := buf.get_u16()
+				blocks.append({
+					"pos": Vector2(bx, by),
+					"id": bid,
+					"hp": bhp,
+					"hp_max": bhpmax,
+				})
 			entity.set_meta("blocks", blocks)
-		else:
+
+	else:
+		# ← ГЛАВНОЕ: интерполяция для чужого корабля
+		var it := C_InterpTarget.new()
+		it.prev_pos = spawn_pos
+		it.curr_pos = spawn_pos
+		it.prev_rot = rot_rad
+		it.curr_rot = rot_rad
+		it.t = 1.0
+		it.has_target = true
+		entity.add_component(it)
+
+		if block_count > 0:
+			var mk: C_MirrorKind = entity.get_component(C_MirrorKind)
+			mk.hp = hp
+			mk.hp_max = hp_max
+
 			var mask_bytes := int(ceil(float(block_count) / 8.0))
 			var res = buf.get_data(mask_bytes)
 			if res[0] == OK:
-				var mk: C_MirrorKind = entity.get_component(C_MirrorKind)
 				mk.alive_mask = res[1]
 
+			var layout: Array = []
+			var hps: Array = []
+			var hpmaxes: Array = []
+			for i in block_count:
+				var qx := buf.get_8()
+				var qy := buf.get_8()
+				var bhp := buf.get_u16()              # NEW
+				var bhpmax := buf.get_u16()           # NEW
+				layout.append(Vector2i(qx, qy))
+				hps.append(bhp)
+				hpmaxes.append(bhpmax)
+			mk.blocks_layout = layout
+			mk.blocks_hp = hps
+			mk.blocks_hp_max = hpmaxes
 	ClientSession.register_entity(net_id, entity)
 	ECS.world.add_entity(entity)
 	NetLog.d("client", "SPAWN net_id=%d kind=%d owner=%s hp=%d/%d blocks=%d" % [
 		net_id, kind, str(is_owner), hp, hp_max, block_count
 	])
+
+func _on_block_hp(buf: StreamPeerBuffer) -> void:
+	var net_id := buf.get_u16()
+	var count := buf.get_u16()
+
+	var e = ClientSession.get_entity(net_id)
+	if e == null or not is_instance_valid(e):
+		return
+
+	if net_id == ClientSession.net_id:
+		# Owner: обновляем hp блоков в мете
+		var blocks: Array = e.get_meta("blocks", [])
+		for _i in count:
+			var kx := buf.get_float()
+			var ky := buf.get_float()
+			var new_hp := buf.get_u16()
+			for b in blocks:
+				var bp: Vector2 = b["pos"]
+				if abs(bp.x - kx) < 0.01 and abs(bp.y - ky) < 0.01:
+					b["hp"] = new_hp
+					break
+		e.set_meta("blocks", blocks)
+	else:
+		# Remote: обновляем C_MirrorKind.blocks_hp
+		var mk: C_MirrorKind = e.get_component(C_MirrorKind)
+		if mk == null:
+			return
+		var layout: Array = mk.blocks_layout
+		var hps: Array = mk.blocks_hp
+		for _i in count:
+			var kx := buf.get_float()
+			var ky := buf.get_float()
+			var new_hp := buf.get_u16()
+			for i in layout.size():
+				var bp: Vector2i = layout[i]                # ← явная типизация
+				var lx: float = float(bp.x) * 0.5
+				var ly: float = float(bp.y) * 0.5
+				if abs(lx - kx) < 0.01 and abs(ly - ky) < 0.01:
+					if i < hps.size():
+						hps[i] = new_hp
+					break
 
 func _on_despawn(buf: StreamPeerBuffer) -> void:
 	var net_id := buf.get_u16()
@@ -123,6 +212,13 @@ func _on_fire(buf: StreamPeerBuffer) -> void:
 	var rot_rad       := NetProtocol.dequant_rot(buf.get_u16())
 	var target_net    := buf.get_u16()
 
+	# Дедупликация: observer + AOISystem могут слать MSG_FIRE дважды.
+	var existing = ClientSession.get_entity(proj_net_id)
+	if existing != null and is_instance_valid(existing):
+		var p: C_Position = existing.get_component(C_Position)
+		if p: p.value = Vector2(sx, sy)
+		return
+
 	var entity := Entity.new()
 	entity.name = "proj_%d" % proj_net_id
 	entity.add_component(_mk_netid(proj_net_id))
@@ -138,6 +234,7 @@ func _on_fire(buf: StreamPeerBuffer) -> void:
 	it.t = 1.0
 	it.has_target = true
 	entity.add_component(it)
+	
 
 	ClientSession.register_entity(proj_net_id, entity)
 	ECS.world.add_entity(entity)
@@ -165,6 +262,7 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 		var vy: int = buf.get_16() if has_vel else 0
 
 		var e = ClientSession.get_entity(net_id)
+
 		if e == null or not is_instance_valid(e):
 			continue
 
@@ -184,14 +282,25 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 			var it: C_InterpTarget = e.get_component(C_InterpTarget)
 			if it == null:
 				continue
-			if has_pos:
-				it.prev_pos = it.curr_pos
-				it.curr_pos = NetProtocol.dequant_pos(Vector2i(qx, qy), ClientSession.map_min, ClientSession.map_max)
+			if has_pos or has_rot:
+				# Promote: текущее РЕНДЕРНОЕ состояние становится prev.
+				# Не прыгаем в конец предыдущей интерполяции — так нет снапа.
+				var rendered_pos: Vector2 = it.prev_pos.lerp(it.curr_pos, it.t)
+				var rendered_rot: float = lerp_angle(it.prev_rot, it.curr_rot, it.t)
+				it.prev_pos = rendered_pos
+				it.prev_rot = rendered_rot
+				if has_pos:
+					it.curr_pos = NetProtocol.dequant_pos(Vector2i(qx, qy), ClientSession.map_min, ClientSession.map_max)
+				if has_rot:
+					it.curr_rot = NetProtocol.dequant_rot(qrot)
 				it.t = 0.0
 				it.has_target = true
-			if has_rot:
-				it.prev_rot = it.curr_rot
-				it.curr_rot = NetProtocol.dequant_rot(qrot)
+			if has_hp:
+				var mk: C_MirrorKind = e.get_component(C_MirrorKind)
+				if mk != null:
+					mk.hp = hp
+
+
 
 func _on_pong(buf: StreamPeerBuffer) -> void:
 	var client_time := buf.get_u32()

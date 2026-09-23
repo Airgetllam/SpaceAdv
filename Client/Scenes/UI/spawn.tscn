@@ -59,8 +59,5 @@ layout_mode = 2
 layout_mode = 2
 text = "Присоединиться"
 
-[node name="Label" type="Label" parent="VBoxContainer" unique_id=635215005]
-layout_mode = 2
-
 [node name="StatusLabel" type="Label" parent="VBoxContainer" unique_id=382523081]
 layout_mode = 2

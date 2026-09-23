@@ -109,7 +109,7 @@ func _spawn_projectile(shooter: Entity, sock: Vector2, body_node: Node2D, cell_s
 		C_Damage.new(100, 1.5),
 		C_Target.new(target_entity),
 		C_HomingParams.new(1, 4),
-		C_LifeTimer.new(5.0),
+		C_LifeTimer.new(50.0),
 		C_Owner.new([shooter])
 	])
 	ECS.world.add_entity(proj)
