@@ -104,8 +104,8 @@ func _handle_input(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> 
 	# Отбрасываем устаревшие и дубликаты
 	if input_seq <= ps.last_applied_input_seq:
 		return
-	for q in ps.input_queue:
-		if q.seq == input_seq:
+	for _q in ps.input_queue:
+		if _q.seq == input_seq:
 			return
 
 	ps.input_queue.append({

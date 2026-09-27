@@ -25,6 +25,9 @@ var last_sent_state: Dictionary = {}
 var reliable_outbox: Array = []
 var last_aoi_tick: int = -1000
 
+# Батч спавнов: набор готовых тел MSG_SPAWN, отправляется одним MSG_SPAWN_BATCH.
+var spawn_batch: Array = []
+
 # Спавн
 var needs_spawn: bool = false
 var spawn_pos: Vector2 = Vector2.ZERO

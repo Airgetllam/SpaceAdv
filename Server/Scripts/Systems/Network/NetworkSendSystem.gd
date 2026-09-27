@@ -15,12 +15,13 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 			server.tick = 0
 
 		for ps in server.peers.values():
+			# 0. Слить накопленные спавны в один MSG_SPAWN_BATCH (или несколько, если > MTU)
+			_flush_spawn_batch(ps)
+
 			# 1. Ретрансмит неподтверждённых надёжных
 			ps.reliable.tick(ps.udp_peer, now)
 
-			# 2. Отправка новых надёжных — с rate-limit, чтобы всплеск
-			#    (например, залп из 36 MSG_FIRE) растянулся на несколько тиков
-			#    и не переполнил приёмный буфер клиента.
+			# 2. Отправка новых надёжных — с rate-limit
 			var sent := 0
 			while sent < NetConfig.MAX_RELIABLE_PER_TICK and not ps.reliable_outbox.is_empty():
 				var entry: Dictionary = ps.reliable_outbox.pop_front()
@@ -31,6 +32,35 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 
 			# 3. Unreliable MSG_STATE
 			_send_state(server, ps)
+
+
+func _flush_spawn_batch(ps: PeerState) -> void:
+	if ps.spawn_batch.is_empty():
+		return
+	var max_body_bytes: int = NetConfig.MAX_STATE_PACKET_BYTES - 16
+
+	var i := 0
+	while i < ps.spawn_batch.size():
+		var chunk: Array = []
+		var total := 0
+		var j := i
+		while j < ps.spawn_batch.size():
+			var body: PackedByteArray = ps.spawn_batch[j]
+			if not chunk.is_empty() and total + body.size() > max_body_bytes:
+				break
+			chunk.append(body)
+			total += body.size()
+			j += 1
+
+		var buf := StreamPeerBuffer.new()
+		buf.put_u16(chunk.size())
+		for b in chunk:
+			buf.put_data(b)
+		ps.queue_reliable(NetProtocol.MSG_SPAWN_BATCH, buf.data_array)
+		NetLog.d("send", "batched spawns=%d bytes=%d" % [chunk.size(), total])
+		i = j
+
+	ps.spawn_batch.clear()
 
 
 func _send_state(server: C_ServerIP, ps: PeerState) -> void:

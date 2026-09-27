@@ -68,6 +68,13 @@ func _ready() -> void:
 		C_CursorPosition.new(),
 		C_Targets.new()
 	], _world)
+	
+	_create_entity('test', [
+		C_EntityType.new("test"),
+		C_Position.new(Vector2(500, 500)),
+		C_Direction.new(45.0),
+		C_Blocks.new({Vector2(0,0): {"block_id": 1, "block_hp": 100, "block_hp_max": 100, "destroy": false}})
+	], _world)
 
 
 func _process(delta: float) -> void:
@@ -86,6 +93,6 @@ func _create_entity(_name: String, components: Array, _world_: World) -> void:
 	var _entity = Entity.new()
 	_entity.name = _name
 	_entity.set_meta('entity_id', _entity.id)
+	_world_.add_entity(_entity)
 	for component in components:
 		_entity.add_component(component)
-	_world_.add_entity(_entity)

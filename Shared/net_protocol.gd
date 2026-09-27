@@ -14,6 +14,7 @@ const MSG_FIRE      := 8   # S→C reliable
 const MSG_PING      := 9   # C→S unreliable
 const MSG_PONG      := 10  # S→C unreliable
 const MSG_ACK       := 11  # C→S / S→C unreliable
+const MSG_SPAWN_BATCH := 12  # S→C reliable, батч тел MSG_SPAWN
 
 # --- Заголовок ---
 static func write_header(buf: StreamPeerBuffer, msg_type: int, seq: int) -> void:

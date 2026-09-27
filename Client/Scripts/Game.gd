@@ -109,7 +109,7 @@ func _setup_block_multimeshes() -> void:
 	for block_id in BLOCK_TEXTURES.keys():
 		var mmi := MultiMeshInstance2D.new()
 		mmi.name = "BlockMM_%d" % block_id
-		mmi.z_index = 0
+		mmi.z_index = 2
 		mmi.texture = BLOCK_TEXTURES[block_id]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_2D

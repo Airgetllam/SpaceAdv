@@ -27,10 +27,6 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 			if ClientSession.reliable_recv.on_receive(header.seq, raw):
 				_on_despawn(buf)
 			_send_ack(header.seq)
-		NetProtocol.MSG_FIRE:
-			if ClientSession.reliable_recv.on_receive(header.seq, raw):
-				_on_fire(buf)
-			_send_ack(header.seq)
 		NetProtocol.MSG_STATE:
 			_on_state(buf)
 		NetProtocol.MSG_PONG:
@@ -39,8 +35,18 @@ func _handle_packet(raw: PackedByteArray, buf: StreamPeerBuffer) -> void:
 			if ClientSession.reliable_recv.on_receive(header.seq, raw):
 				_on_block_hp(buf)
 			_send_ack(header.seq)
+		NetProtocol.MSG_SPAWN_BATCH:
+			if ClientSession.reliable_recv.on_receive(header.seq, raw):
+				_on_spawn_batch(buf)
+			_send_ack(header.seq)
 		_:
 			NetLog.d("client", "unhandled msg_type=%d" % header.msg_type)
+
+func _on_spawn_batch(buf: StreamPeerBuffer) -> void:
+	var n := buf.get_u16()
+	NetLog.d("client", "SPAWN_BATCH n=%d" % n)
+	for _i in n:
+		_on_spawn(buf)
 
 func _send_ack(seq: int) -> void:
 	var buf := StreamPeerBuffer.new()
@@ -53,106 +59,111 @@ func _mk_netid(nid: int) -> C_NetId:
 	return c
 
 func _on_spawn(buf: StreamPeerBuffer) -> void:
-	var net_id       := buf.get_u16()
-	var kind         := buf.get_u8()
-	var owner_net_id := buf.get_u16()
-	var px           := buf.get_float()
-	var py           := buf.get_float()
-	var rot_rad      := NetProtocol.dequant_rot(buf.get_u16())
-	var hp           := buf.get_u16()
-	var hp_max       := buf.get_u16()
-	var size_x       := buf.get_u16()
-	var size_y       := buf.get_u16()
-	var block_count  := buf.get_u16()
-
-	var is_owner := (net_id == ClientSession.net_id)
-	var spawn_pos := Vector2(px, py)
+	var net_id    := buf.get_u16()
+	var comp_mask := buf.get_u16()
+	var is_owner  := (net_id == ClientSession.net_id)
 
 	var entity := Entity.new()
-	entity.name = "ship_%d" % net_id
+	entity.name = "ent_%d" % net_id
 	entity.add_component(_mk_netid(net_id))
-	entity.add_component(C_Position.new(spawn_pos))
-	entity.add_component(C_Direction.new(rad_to_deg(rot_rad)))
-	entity.add_component(C_MirrorKind.new(kind, owner_net_id, 0))
 
-	var size_c := C_Size.new()
-	size_c.value = Vector2(size_x, size_y)
-	entity.add_component(size_c)
+	# C_MirrorKind ставим всегда — хранит owner_net_id и hp/hp_max,
+	# даже если у сущности нет ни блоков, ни оружия.
+	var mk := C_MirrorKind.new()
+	entity.add_component(mk)
 
-	if is_owner:
-		entity.add_component(C_IsLocalPlayer.new())
-		var pred := C_PredictedState.new()
-		pred.pos = spawn_pos
-		pred.rot = rot_rad
-		pred.initialized = true
-		entity.add_component(pred)
-		entity.add_component(C_InputHistory.new())
+	var spawn_pos := Vector2.ZERO
+	var spawn_rot := 0.0
 
-		var last_state := C_LastServerState.new()
-		last_state.pos = spawn_pos
-		last_state.rot = rot_rad
-		last_state.vel = Vector2.ZERO
-		last_state.last_acked_seq = 0
-		last_state.last_reconciled_seq = 0
-		last_state.dirty = false
-		entity.add_component(last_state)
+	if comp_mask & 1:
+		spawn_pos = Vector2(buf.get_float(), buf.get_float())
+		entity.add_component(C_Position.new(spawn_pos))
+	if comp_mask & 2:
+		spawn_rot = NetProtocol.dequant_rot(buf.get_u16())
+		entity.add_component(C_Direction.new(rad_to_deg(spawn_rot)))
+	if comp_mask & 4:
+		mk.hp     = buf.get_u16()
+		mk.hp_max = buf.get_u16()
+	if comp_mask & 8:
+		var vx := buf.get_16()
+		var vy := buf.get_16()
+		entity.add_component(C_Velocity.new(Vector2(vx, vy)))
 
-		# Owner: полный список блоков (pos float×2, id u8, hp u16)
-		if block_count > 0:
+	if comp_mask & 16:
+		var block_count := buf.get_u16()
+		if is_owner:
 			var blocks: Array = []
 			for i in block_count:
-				var bx := buf.get_float()
-				var by := buf.get_float()
+				var bx  := buf.get_float()
+				var by  := buf.get_float()
 				var bid := buf.get_u8()
 				var bhp := buf.get_u16()
-				var bhpmax := buf.get_u16()
+				var bhm := buf.get_u16()
 				blocks.append({
-					"pos": Vector2(bx, by),
-					"id": bid,
-					"hp": bhp,
-					"hp_max": bhpmax,
+					"pos": Vector2(bx, by), "id": bid,
+					"hp": bhp, "hp_max": bhm,
 				})
 			entity.set_meta("blocks", blocks)
-
-	else:
-		# ← ГЛАВНОЕ: интерполяция для чужого корабля
-		var it := C_InterpTarget.new()
-		it.prev_pos = spawn_pos
-		it.curr_pos = spawn_pos
-		it.prev_rot = rot_rad
-		it.curr_rot = rot_rad
-		it.t = 1.0
-		it.has_target = true
-		entity.add_component(it)
-
-		if block_count > 0:
-			var mk: C_MirrorKind = entity.get_component(C_MirrorKind)
-			mk.hp = hp
-			mk.hp_max = hp_max
-
+		else:
 			var mask_bytes := int(ceil(float(block_count) / 8.0))
 			var res = buf.get_data(mask_bytes)
 			if res[0] == OK:
 				mk.alive_mask = res[1]
-
 			var layout: Array = []
 			var hps: Array = []
 			var hpmaxes: Array = []
 			for i in block_count:
 				var qx := buf.get_8()
 				var qy := buf.get_8()
-				var bhp := buf.get_u16()              # NEW
-				var bhpmax := buf.get_u16()           # NEW
+				var bhp := buf.get_u16()
+				var bhm := buf.get_u16()
 				layout.append(Vector2i(qx, qy))
 				hps.append(bhp)
-				hpmaxes.append(bhpmax)
+				hpmaxes.append(bhm)
 			mk.blocks_layout = layout
 			mk.blocks_hp = hps
 			mk.blocks_hp_max = hpmaxes
+
+	if comp_mask & 32:
+		mk.owner_net_id = buf.get_u16()
+	if comp_mask & 64:
+		var sc := C_Size.new()
+		sc.value = Vector2(buf.get_u16(), buf.get_u16())
+		entity.add_component(sc)
+
+	# Локальные компоненты — по правилу is_owner и наличию позиции.
+	if is_owner:
+		entity.add_component(C_IsLocalPlayer.new())
+		if entity.has_component(C_Position):
+			var pred := C_PredictedState.new()
+			pred.pos = spawn_pos
+			pred.rot = spawn_rot
+			pred.initialized = true
+			entity.add_component(pred)
+			entity.add_component(C_InputHistory.new())
+			var last := C_LastServerState.new()
+			last.pos = spawn_pos
+			last.rot = spawn_rot
+			last.vel = Vector2.ZERO
+			last.last_acked_seq = 0
+			last.last_reconciled_seq = 0
+			last.dirty = false
+			entity.add_component(last)
+	else:
+		if entity.has_component(C_Position):
+			var it := C_InterpTarget.new()
+			it.prev_pos = spawn_pos
+			it.curr_pos = spawn_pos
+			it.prev_rot = spawn_rot
+			it.curr_rot = spawn_rot
+			it.t = 1.0
+			it.has_target = true
+			entity.add_component(it)
+
 	ClientSession.register_entity(net_id, entity)
 	ECS.world.add_entity(entity)
-	NetLog.d("client", "SPAWN net_id=%d kind=%d owner=%s hp=%d/%d blocks=%d" % [
-		net_id, kind, str(is_owner), hp, hp_max, block_count
+	NetLog.d("client", "SPAWN net_id=%d mask=0x%02x owner=%s" % [
+		net_id, comp_mask, str(is_owner)
 	])
 
 func _on_block_hp(buf: StreamPeerBuffer) -> void:
@@ -204,41 +215,6 @@ func _on_despawn(buf: StreamPeerBuffer) -> void:
 	ClientSession.unregister_entity(net_id)
 	NetLog.d("client", "DESPAWN net_id=%d (mirror size=%d)" % [net_id, ClientSession.net_id_to_entity.size()])
 
-func _on_fire(buf: StreamPeerBuffer) -> void:
-	var proj_net_id   := buf.get_u16()
-	var shooter_net   := buf.get_u16()
-	var sx            := buf.get_float()
-	var sy            := buf.get_float()
-	var rot_rad       := NetProtocol.dequant_rot(buf.get_u16())
-	var target_net    := buf.get_u16()
-
-	# Дедупликация: observer + AOISystem могут слать MSG_FIRE дважды.
-	var existing = ClientSession.get_entity(proj_net_id)
-	if existing != null and is_instance_valid(existing):
-		var p: C_Position = existing.get_component(C_Position)
-		if p: p.value = Vector2(sx, sy)
-		return
-
-	var entity := Entity.new()
-	entity.name = "proj_%d" % proj_net_id
-	entity.add_component(_mk_netid(proj_net_id))
-	entity.add_component(C_Position.new(Vector2(sx, sy)))
-	entity.add_component(C_Direction.new(rad_to_deg(rot_rad)))
-	entity.add_component(C_MirrorKind.new(2, shooter_net, target_net))
-
-	var it := C_InterpTarget.new()
-	it.prev_pos = Vector2(sx, sy)
-	it.curr_pos = Vector2(sx, sy)
-	it.prev_rot = rot_rad
-	it.curr_rot = rot_rad
-	it.t = 1.0
-	it.has_target = true
-	entity.add_component(it)
-	
-
-	ClientSession.register_entity(proj_net_id, entity)
-	ECS.world.add_entity(entity)
-	NetLog.d("client", "FIRE net_id=%d shooter=%d pos=(%.1f,%.1f)" % [proj_net_id, shooter_net, sx, sy])
 
 func _on_state(buf: StreamPeerBuffer) -> void:
 	var _tick: int = buf.get_u16()

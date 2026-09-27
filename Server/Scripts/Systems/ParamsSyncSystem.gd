@@ -25,12 +25,15 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 				block.block_hp = 0
 				block.destroy = true
 
+			# Только для отображения на сервере
 			var color = hp_colors[_get_hp_percent(block.block_hp, block.block_hp_max)]
 			block.mmi.multimesh.set_instance_color(block.block_index, color)
 
+			# Компонент C_HP
 			var actual_damage = damage_before - block.block_hp
 			hp.value -= actual_damage
 
+			# Компонент C_Ammo
 			if block.block_id == 2 and block.destroy:
 				ammo.value -= 1
 

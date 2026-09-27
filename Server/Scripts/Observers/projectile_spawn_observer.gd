@@ -1,7 +1,8 @@
 extends Observer
 class_name ProjectileSpawnObserver
-## Ловит момент, когда NetIdAssignObserver выдал снаряду net_id,
-## и надёжно рассылает MSG_FIRE пирам, в чьём AOI оказался спавн.
+## Ускоренный спавн снарядов: как только снаряду выдан net_id,
+## сразу шлём MSG_SPAWN пирам, в чьём AOI он появился.
+## Не ждём тика AOISystem — иначе снаряд на клиенте появится через 50–100 мс.
 ## Регистрировать ПОСЛЕ NetIdAssignObserver.
 
 func query() -> QueryBuilder:
@@ -11,6 +12,7 @@ func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 	if entity.has_meta("_fire_sent"):
 		return
 	entity.set_meta("_fire_sent", true)
+
 	var et: C_EntityType = entity.get_component(C_EntityType)
 	if et == null or et.value != "projectile":
 		return
@@ -20,56 +22,23 @@ func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 		return
 
 	var nid: int = entity.get_component(C_NetId).value
-
-	# Позиция спавна: C_Position (если уже проставлен) или C_SpawnPoint
-	var spawn_pos := Vector2.ZERO
 	var pos_c: C_Position = entity.get_component(C_Position)
-	if pos_c != null:
-		spawn_pos = pos_c.value
-	else:
-		var sp: C_SpawnPoint = entity.get_component(C_SpawnPoint)
-		if sp != null:
-			spawn_pos = sp.value
+	if pos_c == null:
+		# Снаряд ещё не получил позицию — AOISystem подхватит позже.
+		return
+	var spawn_pos: Vector2 = pos_c.value
 
-	# Угол: C_Direction (градусы) или C_SpawnPoint.angle_value (градусы)
-	var ship_deg := 0.0
-	var dir_c: C_Direction = entity.get_component(C_Direction)
-	if dir_c != null:
-		ship_deg = dir_c.value
-	else:
-		var sp2: C_SpawnPoint = entity.get_component(C_SpawnPoint)
-		if sp2 != null:
-			ship_deg = sp2.angle_value
-
-	# Владелец
-	var shooter_net := 0
-	var own: C_Owner = entity.get_component(C_Owner)
-	if own != null and not own.value.is_empty():
-		var sh = own.value[0]
-		if is_instance_valid(sh) and sh.has_component(C_NetId):
-			shooter_net = sh.get_component(C_NetId).value
-
-	# Цель (для отображения трассера у клиента)
-	var target_net := 0
-	var tgt: C_Target = entity.get_component(C_Target)
-	if tgt != null and not tgt.value.is_empty():
-		var te = tgt.value[0]
-		if is_instance_valid(te) and te.has_component(C_NetId):
-			target_net = te.get_component(C_NetId).value
-
-	# Тело MSG_FIRE
-	var body := StreamPeerBuffer.new()
-	body.put_u16(nid)
-	body.put_u16(shooter_net)
-	body.put_float(spawn_pos.x)
-	body.put_float(spawn_pos.y)
-	body.put_u16(NetProtocol.quant_rot(deg_to_rad(ship_deg)))
-	body.put_u16(target_net)
+	# viewer_net_id = -1 → никогда не owner, блоки пойдут по observer-ветке.
+	var payload := AOISystem.build_spawn_payload(server, -1, entity)
+	if payload.is_empty():
+		return
 
 	var aoi_sq: float = NetConfig.AOI_RADIUS * NetConfig.AOI_RADIUS
 	for peer_key in server.peers.keys():
 		var ps: PeerState = server.peers[peer_key]
 		if ps == null:
+			continue
+		if ps.visible_net_ids.has(nid):
 			continue
 		var viewer = server.get_entity(ps.net_id)
 		if viewer == null:
@@ -78,7 +47,7 @@ func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 		if vpos == null:
 			continue
 		if vpos.value.distance_squared_to(spawn_pos) <= aoi_sq:
-			ps.queue_reliable(NetProtocol.MSG_FIRE, body.data_array)
-			NetLog.d("server", "MSG_FIRE net=%d shooter=%d -> peer=%d" % [
-				nid, shooter_net, ps.net_id
-			])
+			ps.spawn_batch.append(payload)
+			ps.visible_net_ids[nid] = true
+			ps.last_sent_state.erase(nid)
+			NetLog.d("spawn", "FAST QUEUE net=%d -> peer=%d" % [nid, ps.net_id])

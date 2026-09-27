@@ -11,7 +11,7 @@ const SERVER_TICK_DT: float = 1.0 / SERVER_TICK_RATE
 const CLIENT_INPUT_DT: float = 1.0 / CLIENT_INPUT_RATE
 
 # AOI
-const AOI_RADIUS: float = 2500.0
+const AOI_RADIUS: float = 10000
 
 # Надёжный канал
 const RELIABLE_TIMEOUT_MS: int = 200
@@ -31,11 +31,11 @@ const MAX_RELIABLE_QUEUE: int = 256
 
 # AOI / приоритизация
 const AOI_REFRESH_TICKS: int = 2           # пересчёт видимости раз в 2 серверных тика
-const NEAR_RADIUS: float = 800.0
-const MID_RADIUS: float = 1600.0
+const NEAR_RADIUS: float = 5000.0
+const MID_RADIUS: float = 10000.0
 const PROJECTILE_UPDATE_INTERVAL: int = 2  # снаряды шлём раз в 2 тика (10 Гц)
 
-# Лимиты пакетов (заменяют хардкод в NetworkSendSystem)
+# Лимиты пакетов 
 const MAX_STATE_PACKET_BYTES: int = 1100   # держим MSG_STATE < MTU 1200
 const MAX_RELIABLE_PER_TICK: int = 16      # защита от всплесков MSG_FIRE
 

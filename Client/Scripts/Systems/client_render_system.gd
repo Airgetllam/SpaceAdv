@@ -25,25 +25,22 @@ func process(_entities: Array[Entity], _components: Array, _delta: float) -> voi
 		if mk == null:
 			continue
 		var p: C_Position = e.get_component(C_Position)
-		var d: C_Direction = e.get_component(C_Direction)
-		if p == null or d == null:
+		if p == null:
 			continue
+		var d: C_Direction = e.get_component(C_Direction)
+		var rot_rad: float = deg_to_rad(d.value) if d != null else 0.0
 
-		if mk.is_projectile:
+		if e.has_component(C_IsLocalPlayer) and d != null:
+			# Свой корабль — реальные текстуры блоков.
+			_render_local_ship_blocks(e, p, d, game)
+		elif not mk.blocks_layout.is_empty() and d != null:
+			# Чужой корабль / структура с блоками.
+			_render_remote_ship_blocks(e, p, d, game)
+		else:
+			# Всё, что не имеет блоков — снаряды, маркеры, служебные сущности.
 			if proj_idx < proj_mm.instance_count:
-				var rot_rad := deg_to_rad(d.value)
 				proj_mm.set_instance_transform_2d(proj_idx, Transform2D(rot_rad, p.value))
 				proj_idx += 1
-		elif e.has_component(C_IsLocalPlayer):
-			_render_local_ship_blocks(e, p, d, game)
-		else:
-			if mk.blocks_layout.is_empty():
-				if remote_idx < remote_mm.instance_count:
-					var rot_rad := deg_to_rad(d.value)
-					remote_mm.set_instance_transform_2d(remote_idx, Transform2D(rot_rad, p.value))
-					remote_idx += 1
-			else:
-				_render_remote_ship_blocks(e, p, d, game)
 
 	proj_mm.visible_instance_count = proj_idx
 	remote_mm.visible_instance_count = remote_idx
