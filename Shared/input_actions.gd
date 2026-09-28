@@ -7,10 +7,12 @@ extends RefCounted
 const PRIMARY_FIRE: int = 0
 const SECONDARY_FIRE: int = 1
 const TARGET_SELECT: int = 2
+const ABILITY_BOOST: int = 3
 
 # Соответствие ID -> InputMap action.
 const ACTION_NAMES: Array[StringName] = [
 	&"fire",
 	&"fire_alt",
 	&"target_select",
+	&"ability_boost",
 ]

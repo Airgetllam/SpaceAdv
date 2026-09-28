@@ -53,8 +53,10 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 				selected_target
 			)
 
-		# События являются одноразовыми.
-		input_state.pending_events.clear()
+		for i in range(input_state.pending_events.size() - 1, -1, -1):
+			var event: PlayerInputAction = input_state.pending_events[i]
+			if event.action_id == InputActions.TARGET_SELECT:
+				input_state.pending_events.remove_at(i)
 
 
 func _find_target_at(

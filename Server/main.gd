@@ -20,6 +20,7 @@ func _ready() -> void:
 		"admin_atack": AdminAtackSystem.new(),
 		"admin_cursor_interaction": AdminCursorInteractionSystem.new(),
 		"movement": MovementSystem.new(),
+		"player_ability": PlayerAbilitySystem.new(),
 		"target_selection": PlayerTargetSelectionSystem.new(),
 		"player_fire": PlayerFireSystem.new(),
 		"transform_sync": TransformSyncSystem.new(),
@@ -64,6 +65,7 @@ func _ready() -> void:
 	systems["movement"].group = "physics"
 	systems["player_fire"].group = "physics"
 	systems["target_selection"].group = "physics"
+	systems["player_ability"].group = "physics"
 
 	_create_entity('server', [
 		C_ServerIP.new(),
