@@ -28,12 +28,27 @@ func _reconcile(entity: Entity, last: C_LastServerState) -> void:
 	for inp in hist.entries:
 		if inp.seq <= last.last_acked_seq:
 			continue
+
 		s = MovementModel.step(s, {
 			"throttle": inp.throttle,
 			"turn": inp.turn,
 			"brake": inp.brake,
 			"dt": inp.dt,
 		})
+
+		var events: Array = inp.get("events", [])
+
+		for event in events:
+			if event.action_id != InputActions.ABILITY_BOOST:
+				continue
+
+			if event.state != PlayerInputAction.State.PRESSED:
+				continue
+
+			s.vel = AbilityModel.apply_boost(
+				s.vel,
+				s.rot
+			)
 	pred.pos = s.pos
 	pred.rot = s.rot
 	pred.vel = s.vel

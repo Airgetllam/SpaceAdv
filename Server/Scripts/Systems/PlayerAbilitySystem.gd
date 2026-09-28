@@ -1,12 +1,21 @@
 extends System
 class_name PlayerAbilitySystem
 
-const BOOST_IMPULSE: float = 500.0
 
 func query() -> QueryBuilder:
-	return q.with_all([C_PeerID, C_PlayerInputState, C_Direction, C_Velocity])
+	return q.with_all([
+		C_PeerID,
+		C_PlayerInputState,
+		C_Direction,
+		C_Velocity,
+	])
 
-func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
+
+func process(
+	entities: Array[Entity],
+	_components: Array,
+	_delta: float
+) -> void:
 	for entity in entities:
 		var input_state: C_PlayerInputState = (
 			entity.get_component(C_PlayerInputState)
@@ -27,18 +36,23 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 		):
 			continue
 
+		var ability_applied := false
+
 		for i in range(input_state.pending_events.size() - 1, -1, -1):
-			var event: PlayerInputAction = input_state.pending_events[i]
+			var event: PlayerInputAction = (
+				input_state.pending_events[i]
+			)
 
 			if event.action_id != InputActions.ABILITY_BOOST:
 				continue
 
 			if event.state == PlayerInputAction.State.PRESSED:
-				var forward := Vector2.UP.rotated(
+				velocity.value = AbilityModel.apply_boost(
+					velocity.value,
 					deg_to_rad(direction.value)
 				)
 
-				velocity.value += forward * BOOST_IMPULSE
+				ability_applied = true
 
 				var net_id := 0
 
@@ -58,4 +72,23 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 					]
 				)
 
+			# Событие считается consumed независимо от состояния.
 			input_state.pending_events.remove_at(i)
+
+		# MovementSystem формирует ack snapshot до ability.
+		# После boost обновляем его, чтобы MSG_STATE отражал
+		# authoritative velocity после применения события.
+		if ability_applied:
+			var ps: PeerState = (
+				entity.get_meta("peer_state", null)
+			)
+
+			var position: C_Position = (
+				entity.get_component(C_Position)
+			)
+
+			if ps != null and position != null:
+				ps.acked_pos = position.value
+				ps.acked_rot = direction.value
+				ps.acked_vel = velocity.value
+				ps.acked_initialized = true
