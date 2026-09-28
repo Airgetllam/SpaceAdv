@@ -134,6 +134,7 @@ func _on_spawn(buf: StreamPeerBuffer) -> void:
 	# Локальные компоненты — по правилу is_owner и наличию позиции.
 	if is_owner:
 		entity.add_component(C_IsLocalPlayer.new())
+		entity.add_component(C_PlayerInput.new())
 		if entity.has_component(C_Position):
 			var pred := C_PredictedState.new()
 			pred.pos = spawn_pos
