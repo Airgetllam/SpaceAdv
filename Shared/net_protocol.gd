@@ -61,3 +61,135 @@ static func quant_axis(v: float) -> int:
 
 static func dequant_axis(q: int) -> float:
 	return float(q if q < 128 else q - 256) / 127.0
+
+static func write_input_frame(
+	buf: StreamPeerBuffer,
+	input_seq: int,
+	frame: PlayerInputFrame
+) -> void:
+	buf.put_u16(input_seq)
+
+	buf.put_u8(
+		quant_axis(frame.throttle)
+	)
+
+	buf.put_u8(
+		quant_axis(frame.turn)
+	)
+
+	var flags := 0
+
+	if frame.brake:
+		flags |= 1
+
+	buf.put_u8(flags)
+
+	# Generic held-action state.
+	buf.put_u64(frame.pressed_actions_mask)
+
+	# Current cursor position.
+	buf.put_float(frame.cursor_position.x)
+	buf.put_float(frame.cursor_position.y)
+
+	var event_count: int = mini(
+		frame.events.size(),
+		NetConfig.MAX_INPUT_EVENTS_PER_PACKET
+	)
+
+	buf.put_u8(event_count)
+
+	for i in event_count:
+		var event: PlayerInputAction = frame.events[i]
+
+		buf.put_u16(event.event_seq)
+		buf.put_u8(clampi(event.action_id, 0, 255))
+
+		var event_flags := 0
+
+		if event.state == PlayerInputAction.State.PRESSED:
+			event_flags |= 1
+
+		buf.put_u8(event_flags)
+
+		buf.put_float(event.value)
+		buf.put_float(event.position.x)
+		buf.put_float(event.position.y)
+
+
+static func read_input_frame(
+	buf: StreamPeerBuffer
+) -> Dictionary:
+	var result := {
+		"valid": false,
+		"seq": 0,
+		"frame": null,
+	}
+
+	# input_seq(2)
+	# throttle(1)
+	# turn(1)
+	# flags(1)
+	# action_mask(8)
+	# cursor(8)
+	# event_count(1)
+	const BASE_BYTES := 22
+
+	if buf.get_available_bytes() < BASE_BYTES:
+		return result
+
+	var input_seq := buf.get_u16()
+
+	var frame := PlayerInputFrame.new()
+
+	frame.throttle = dequant_axis(buf.get_u8())
+	frame.turn = dequant_axis(buf.get_u8())
+
+	var flags := buf.get_u8()
+	frame.brake = (flags & 1) != 0
+
+	frame.pressed_actions_mask = buf.get_u64()
+
+	frame.cursor_position = Vector2(
+		buf.get_float(),
+		buf.get_float()
+	)
+
+	var event_count := buf.get_u8()
+
+	if event_count > NetConfig.MAX_INPUT_EVENTS_PER_PACKET:
+		return result
+
+	const EVENT_BYTES := 16
+
+	if buf.get_available_bytes() < event_count * EVENT_BYTES:
+		return result
+
+	for _i in event_count:
+		var event_seq := buf.get_u16()
+		var action_id := buf.get_u8()
+		var event_flags := buf.get_u8()
+
+		var value := buf.get_float()
+
+		var position := Vector2(
+			buf.get_float(),
+			buf.get_float()
+		)
+
+		var pressed := (event_flags & 1) != 0
+
+		frame.events.append(
+			PlayerInputAction.new(
+				event_seq,
+				action_id,
+				pressed,
+				value,
+				position
+			)
+		)
+
+	result.valid = true
+	result.seq = input_seq
+	result.frame = frame
+
+	return result

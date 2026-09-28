@@ -25,13 +25,37 @@ func _step_one(e: Entity, dt: float) -> void:
 	var ps: PeerState = e.get_meta("peer_state", null)
 	var applied_new_input: bool = false
 
-	# КЛЮЧЕВОЕ: забираем ровно один input из очереди на каждый шаг
+	# Забираем ровно один generic input frame
+	# на каждый шаг симуляции.
 	if ps and not ps.input_queue.is_empty():
-		var inp: Dictionary = ps.input_queue.pop_front()
-		inp_c.throttle = inp.throttle
-		inp_c.turn = inp.turn
-		inp_c.brake = inp.brake
-		ps.last_applied_input_seq = inp.seq
+		var packet: Dictionary = ps.input_queue.pop_front()
+
+		var frame: PlayerInputFrame = packet.frame
+
+		inp_c.throttle = frame.throttle
+		inp_c.turn = frame.turn
+		inp_c.brake = frame.brake
+
+		# Пока PlayerInputState ещё не вынесен
+		# в отдельную server system, здесь находится
+		# переход от generic input к существующему gameplay state.
+		inp_c.fire = frame.is_action_pressed(
+			InputActions.PRIMARY_FIRE
+		) or frame.is_action_pressed(
+			InputActions.SECONDARY_FIRE
+		)
+
+		if frame.is_action_pressed(InputActions.SECONDARY_FIRE):
+			inp_c.fire_mode = 2
+		else:
+			inp_c.fire_mode = 1
+
+		var cursor_c: C_CursorPosition = e.get_component(C_CursorPosition)
+
+		if cursor_c:
+			cursor_c.position = frame.cursor_position
+
+		ps.last_applied_input_seq = packet.seq
 		applied_new_input = true
 
 	var s: Dictionary = {

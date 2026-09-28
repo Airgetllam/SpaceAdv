@@ -29,24 +29,43 @@ func capture() -> void:
 			_pressed_actions_mask |= 1 << action_id
 
 		if Input.is_action_just_pressed(action_name):
-			_pending_events.append(
-				PlayerInputAction.new(
-					action_id,
-					true,
-					1.0,
-					_cursor_position
-				)
+			_append_event(
+				action_id,
+				true,
+				1.0,
+				_cursor_position
 			)
 
 		if Input.is_action_just_released(action_name):
-			_pending_events.append(
-				PlayerInputAction.new(
-					action_id,
-					false,
-					0.0,
-					_cursor_position
-				)
+			_append_event(
+				action_id,
+				false,
+				0.0,
+				_cursor_position
 			)
+
+func _append_event(
+	action_id: int,
+	pressed: bool,
+	value: float,
+	position: Vector2
+) -> void:
+	var event_seq := ClientSession.next_input_event_seq
+
+	ClientSession.next_input_event_seq = (event_seq + 1) & 0xFFFF
+
+	if ClientSession.next_input_event_seq == 0:
+		ClientSession.next_input_event_seq = 1
+
+	_pending_events.append(
+		PlayerInputAction.new(
+			event_seq,
+			action_id,
+			pressed,
+			value,
+			position
+		)
+	)
 
 func consume_frame() -> PlayerInputFrame:
 	var frame := PlayerInputFrame.new()

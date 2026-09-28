@@ -28,6 +28,7 @@ const THROTTLE_SCALE: float = 127.0
 const MAX_PACKETS_PER_PEER_PER_TICK: int = 10
 const MAX_ENTITIES_PER_STATE_PACKET: int = 64
 const MAX_RELIABLE_QUEUE: int = 256
+const MAX_INPUT_EVENTS_PER_PACKET: int = 8
 
 # AOI / приоритизация
 const AOI_REFRESH_TICKS: int = 2           # пересчёт видимости раз в 2 серверных тика

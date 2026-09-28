@@ -93,42 +93,54 @@ func _handle_hello(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> 
 	# Запрос на спавн (обработает NetworkPeerRegistrationSystem)
 	ps.needs_spawn = true
 
-func _handle_input(server: C_ServerIP, ps: PeerState, buf: StreamPeerBuffer) -> void:
-	var input_seq := buf.get_u16()
-	var throttle := NetProtocol.dequant_axis(buf.get_u8())
-	var turn := NetProtocol.dequant_axis(buf.get_u8())
-	var flags := buf.get_u8()
-	var cursor_x := buf.get_float()
-	var cursor_y := buf.get_float()
+func _handle_input(
+	server: C_ServerIP,
+	ps: PeerState,
+	buf: StreamPeerBuffer
+) -> void:
+	var decoded := NetProtocol.read_input_frame(buf)
 
-	# Отбрасываем устаревшие и дубликаты
+	if not decoded.valid:
+		NetLog.d("recv", "invalid MSG_INPUT")
+		return
+
+	var input_seq: int = decoded.seq
+	var frame: PlayerInputFrame = decoded.frame
+
+	# Отбрасываем устаревшие и дубликаты.
 	if input_seq <= ps.last_applied_input_seq:
 		return
-	for _q in ps.input_queue:
-		if _q.seq == input_seq:
+
+	for queued in ps.input_queue:
+		if queued.seq == input_seq:
 			return
 
+	# NetworkControlSystem больше не знает:
+	# fire, target_select, weapon, ability и т.д.
+	# Он только принимает generic PlayerInputFrame.
 	ps.input_queue.append({
 		"seq": input_seq,
-		"throttle": throttle,
-		"turn": turn,
-		"brake": (flags & 1) != 0,
+		"frame": frame,
 	})
+
 	while ps.input_queue.size() > 128:
 		ps.input_queue.pop_front()
 
-	# Курсор обновляем сразу — он не влияет на симуляцию
-	var e: Entity = server.get_entity(ps.net_id)
-	if e == null:
-		return
-	var cursor: C_CursorPosition = e.get_component(C_CursorPosition)
-	if cursor:
-		cursor.position = Vector2(cursor_x, cursor_y)
-		# fire (bit1) и fire_mode (bits2-3) из flags — клиент их уже присылает
-	var ci: C_ControlInput = e.get_component(C_ControlInput)
-	if ci != null:
-		ci.fire = (flags & 2) != 0
-		ci.fire_mode = (flags >> 2) & 3
+	if not frame.events.is_empty():
+		for event in frame.events:
+			NetLog.d(
+				"input",
+				"recv net_id=%d input_seq=%d event_seq=%d action=%d state=%d value=%.2f pos=(%.1f,%.1f)" % [
+					ps.net_id,
+					input_seq,
+					event.event_seq,
+					event.action_id,
+					event.state,
+					event.value,
+					event.position.x,
+					event.position.y,
+				]
+			)
 
 func _handle_ping(ps: PeerState, header: Dictionary, buf: StreamPeerBuffer) -> void:
 	var client_time := buf.get_u32()

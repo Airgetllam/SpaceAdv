@@ -20,6 +20,7 @@ var entity_to_net_id: Dictionary = {}
 
 # Счётчики, живущие между сценами.
 var next_input_seq: int = 1
+var next_input_event_seq: int = 1
 var next_ping_seq: int = 1
 
 
@@ -35,6 +36,7 @@ func reset() -> void:
 	net_id_to_entity.clear()
 	entity_to_net_id.clear()
 	next_input_seq = 1
+	next_input_event_seq = 1
 	next_ping_seq = 1
 
 

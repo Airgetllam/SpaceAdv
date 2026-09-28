@@ -9,8 +9,9 @@ var last_recv_ms: int = 0
 var last_rtt_ms: int = 0
 var despawned_net_ids: Dictionary = {}
 
-# --- Input queue (server applies 1 per MovementSystem step) ---
-var input_queue: Array = []                 # [{ seq, throttle, turn, brake }]
+# --- Generic player input queue ---
+# [{ seq, frame: PlayerInputFrame }]
+var input_queue: Array = []
 var last_applied_input_seq: int = 0
 
 # --- Snapshot at acked_seq (что отправляем владельцу) ---

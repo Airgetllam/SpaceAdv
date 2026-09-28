@@ -114,23 +114,7 @@ func _tick(entity: Entity) -> void:
 	if hist.entries.size() > 256:
 		hist.entries.pop_front()
 
-	# ------------------------------------------------------------
-	# LEGACY MSG_INPUT
-	#
-	# Stage 1 только меняет источник данных.
-	# Формат пакета пока сохраняется полностью прежним.
-	# Stage 2 заменит только этот участок.
-	# ------------------------------------------------------------
-
-	var flags := 0
-
-	if brake:
-		flags |= 1
-
-	if fire:
-		flags |= 2
-
-	flags |= (fire_mode & 3) << 2
+	# Generic MSG_INPUT.
 
 	var buf := StreamPeerBuffer.new()
 
@@ -140,15 +124,27 @@ func _tick(entity: Entity) -> void:
 		0
 	)
 
-	buf.put_u16(seq)
-	buf.put_u8(throttle_q)
-	buf.put_u8(turn_q)
-	buf.put_u8(flags)
-
-	buf.put_float(frame.cursor_position.x)
-	buf.put_float(frame.cursor_position.y)
+	NetProtocol.write_input_frame(
+		buf,
+		seq,
+		frame
+	)
 
 	ClientSession.udp.put_packet(buf.data_array)
+
+	if not frame.events.is_empty():
+		for event in frame.events:
+			NetLog.d(
+				"input",
+				"send event_seq=%d action=%d state=%d value=%.2f pos=(%.1f,%.1f)" % [
+					event.event_seq,
+					event.action_id,
+					event.state,
+					event.value,
+					event.position.x,
+					event.position.y,
+				]
+			)
 
 func _send_ping() -> void:
 	var seq := ClientSession.next_ping_seq
