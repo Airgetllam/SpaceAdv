@@ -38,6 +38,8 @@ const PROJECTILE_UPDATE_INTERVAL: int = 2  # снаряды шлём раз в 2
 # Лимиты пакетов 
 const MAX_STATE_PACKET_BYTES: int = 1100   # держим MSG_STATE < MTU 1200
 const MAX_RELIABLE_PER_TICK: int = 16      # защита от всплесков MSG_FIRE
+const MIN_STATE_PAYLOAD_BYTES: int = 20
+const STATE_DEFER_MAX_TICKS: int = 2
 
 # Границы карты (для квантования позиции в uint16)
 const MAP_MIN := Vector2(-10000.0, -10000.0)

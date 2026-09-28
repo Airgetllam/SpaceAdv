@@ -108,18 +108,40 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 	# MTU-aware разбиение: набираем чанки, пока не упрёмся в лимит байт
 	# или в MAX_ENTITIES_PER_STATE_PACKET.
 	var i := 0
+	var deferred_this_tick := false
+
 	while i < deltas.size():
 		var chunk: Array = []
 		var total_bytes := 0
 		var j := i
+		var contains_owner := false
+
 		while j < deltas.size() and chunk.size() < NetConfig.MAX_ENTITIES_PER_STATE_PACKET:
 			var d: Dictionary = deltas[j]
 			var dbytes: PackedByteArray = d.bytes
+
 			if not chunk.is_empty() and total_bytes + dbytes.size() > NetConfig.MAX_STATE_PACKET_BYTES:
 				break
+
 			chunk.append(d)
 			total_bytes += dbytes.size()
+
+			if int(d.nid) == ps.net_id:
+				contains_owner = true
+
 			j += 1
+
+		# Маленькие remote-state не отправляем отдельным пакетом.
+		# Но состояние собственного корабля всегда отправляем сразу:
+		# оно нужно prediction/reconciliation.
+		if (
+			total_bytes < NetConfig.MIN_STATE_PAYLOAD_BYTES
+			and not contains_owner
+			and ps.state_defer_ticks < NetConfig.STATE_DEFER_MAX_TICKS
+		):
+			deferred_this_tick = true
+			i = j
+			continue
 
 		var buf := StreamPeerBuffer.new()
 		NetProtocol.write_header(buf, NetProtocol.MSG_STATE, 0)
@@ -131,6 +153,10 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 			ps.last_sent_state[d.nid] = d.snap
 		ps.udp_peer.put_packet(buf.data_array)
 		i = j
+	if deferred_this_tick:
+		ps.state_defer_ticks += 1
+	else:
+		ps.state_defer_ticks = 0
 
 
 ## Интервал обновления MSG_STATE для сущности.

@@ -22,6 +22,7 @@ var acked_initialized: bool = false
 # AOI
 var visible_net_ids: Dictionary = {}
 var last_sent_state: Dictionary = {}
+var state_defer_ticks: int = 0
 var reliable_outbox: Array = []
 var last_aoi_tick: int = -1000
 

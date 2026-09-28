@@ -82,12 +82,7 @@ func _tick(entity: Entity) -> void:
 		hist.entries.pop_front()
 
 	# Формируем MSG_INPUT
-	var vp := ClientSession.game_node.get_viewport()
-	var mouse_pos := vp.get_mouse_position()
-	var camera := vp.get_camera_2d()
-	var world_pos := mouse_pos
-	if camera:
-		world_pos = camera.get_screen_center_position() + (mouse_pos - vp.get_visible_rect().size * 0.5)
+	var world_pos: Vector2 = ClientSession.game_node.get_global_mouse_position()
 
 	var flags := 0
 	if brake: flags |= 1
