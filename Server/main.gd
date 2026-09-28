@@ -18,8 +18,9 @@ func _ready() -> void:
 		"net_send": NetworkSendSystem.new(),
 		"admin_cursor_sync": AdminCursorSyncSystem.new(),
 		"admin_atack": AdminAtackSystem.new(),
-		"cursor_interaction": CursorInteractionSystem.new(),
+		"admin_cursor_interaction": AdminCursorInteractionSystem.new(),
 		"movement": MovementSystem.new(),
+		"target_selection": PlayerTargetSelectionSystem.new(),
 		"player_fire": PlayerFireSystem.new(),
 		"transform_sync": TransformSyncSystem.new(),
 		"velocity_apply": VelocityApplySystem.new(),
@@ -57,10 +58,12 @@ func _ready() -> void:
 	systems["admin_cursor_sync"].group = "admin"
 	systems["debug"].group = "admin"
 	systems["debug_cleanup"].group = "admin"
+	systems["admin_cursor_interaction"].group = "admin"
 	systems["aoi"].group = "network"
 	systems["net_send"].group = "network"
 	systems["movement"].group = "physics"
 	systems["player_fire"].group = "physics"
+	systems["target_selection"].group = "physics"
 
 	_create_entity('server', [
 		C_ServerIP.new(),

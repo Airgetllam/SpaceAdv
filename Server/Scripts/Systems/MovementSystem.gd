@@ -24,6 +24,7 @@ func _step_one(e: Entity, dt: float) -> void:
 
 	var ps: PeerState = e.get_meta("peer_state", null)
 	var applied_new_input: bool = false
+	var input_state: C_PlayerInputState = e.get_component(C_PlayerInputState)
 
 	# Забираем ровно один generic input frame
 	# на каждый шаг симуляции.
@@ -32,13 +33,15 @@ func _step_one(e: Entity, dt: float) -> void:
 
 		var frame: PlayerInputFrame = packet.frame
 
+		if input_state:
+			input_state.current_frame = frame
+			input_state.pending_events.clear()
+			input_state.pending_events.append_array(frame.events)
+
 		inp_c.throttle = frame.throttle
 		inp_c.turn = frame.turn
 		inp_c.brake = frame.brake
 
-		# Пока PlayerInputState ещё не вынесен
-		# в отдельную server system, здесь находится
-		# переход от generic input к существующему gameplay state.
 		inp_c.fire = frame.is_action_pressed(
 			InputActions.PRIMARY_FIRE
 		) or frame.is_action_pressed(

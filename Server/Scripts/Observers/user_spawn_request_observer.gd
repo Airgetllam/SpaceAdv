@@ -13,6 +13,7 @@ func each(_event: Variant, entity: Entity, _payload: Variant = null) -> void:
 		C_AngularVelocity.new(),
 		C_ControlInput.new(),
 		C_CursorPosition.new(),
+		C_PlayerInputState.new(),
 		C_Modules.new(),
 		C_Targets.new()
 	]
