@@ -108,6 +108,7 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 	# MTU-aware разбиение: набираем чанки, пока не упрёмся в лимит байт
 	# или в MAX_ENTITIES_PER_STATE_PACKET.
 	var i := 0
+	var sent_state_packet := false
 	var deferred_this_tick := false
 
 	while i < deltas.size():
@@ -152,11 +153,35 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 			buf.put_data(d.bytes)
 			ps.last_sent_state[d.nid] = d.snap
 		ps.udp_peer.put_packet(buf.data_array)
+		sent_state_packet = true
+		ps.last_sent_ack_seq = ps.last_applied_input_seq
 		i = j
 	if deferred_this_tick:
 		ps.state_defer_ticks += 1
 	else:
 		ps.state_defer_ticks = 0
+
+	# Даже если ни одна entity не изменилась,
+	# клиенту всё равно нужно сообщить, какие input_seq
+	# сервер уже применил.
+	if (
+		not sent_state_packet
+		and ps.last_sent_ack_seq != ps.last_applied_input_seq
+	):
+		var ack_buf := StreamPeerBuffer.new()
+
+		NetProtocol.write_header(
+			ack_buf,
+			NetProtocol.MSG_STATE,
+			0
+		)
+
+		ack_buf.put_u16(server.tick)
+		ack_buf.put_u16(ps.last_applied_input_seq)
+		ack_buf.put_u8(0)
+
+		ps.udp_peer.put_packet(ack_buf.data_array)
+		ps.last_sent_ack_seq = ps.last_applied_input_seq
 
 
 ## Интервал обновления MSG_STATE для сущности.

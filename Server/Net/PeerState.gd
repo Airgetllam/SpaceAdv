@@ -19,6 +19,7 @@ var acked_pos: Vector2 = Vector2.ZERO
 var acked_rot: float = 0.0                  # в градусах (как C_Direction)
 var acked_vel: Vector2 = Vector2.ZERO
 var acked_initialized: bool = false
+var last_sent_ack_seq: int = 0
 
 # AOI
 var visible_net_ids: Dictionary = {}

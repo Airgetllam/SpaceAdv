@@ -75,37 +75,37 @@ func _tick(entity: Entity) -> void:
 	if ClientSession.next_input_seq == 0:
 		ClientSession.next_input_seq = 1
 
-		var out: Dictionary = MovementModel.step(
-			{
-				"pos": pred.pos,
-				"rot": pred.rot,
-				"vel": pred.vel,
-				"throttle": pred.throttle,
-			},
-			{
-				"throttle": throttle,
-				"turn": turn,
-				"brake": brake,
-				"dt": FIXED_DT,
-			}
-		)
+	var out: Dictionary = MovementModel.step(
+		{
+			"pos": pred.pos,
+			"rot": pred.rot,
+			"vel": pred.vel,
+			"throttle": pred.throttle,
+		},
+		{
+			"throttle": throttle,
+			"turn": turn,
+			"brake": brake,
+			"dt": FIXED_DT,
+		}
+	)
 
-		pred.pos = out.pos
-		pred.rot = out.rot
-		pred.vel = out.vel
-		pred.throttle = out.throttle
+	pred.pos = out.pos
+	pred.rot = out.rot
+	pred.vel = out.vel
+	pred.throttle = out.throttle
 
-		# Локальное prediction дискретных действий.
-		for event in frame.events:
-			if event.action_id != InputActions.ABILITY_BOOST:
-				continue
+	# Локальное prediction дискретных действий.
+	for event in frame.events:
+		if event.action_id != InputActions.ABILITY_BOOST:
+			continue
 
-			if event.state != PlayerInputAction.State.PRESSED:
-				continue
+		if event.state != PlayerInputAction.State.PRESSED:
+			continue
 
-			pred.vel = AbilityModel.apply_boost(
-				pred.vel,
-				pred.rot
+		pred.vel = AbilityModel.apply_boost(
+			pred.vel,
+			pred.rot
 			)
 
 	# Синхронизация в C_Position / C_Direction для рендера и камеры.
