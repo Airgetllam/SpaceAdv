@@ -103,6 +103,34 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 		})
 
 	if deltas.is_empty():
+		# Entity delta может отсутствовать, хотя сервер уже
+		# применил новые input frames.
+		#
+		# В этом случае всё равно отправляем клиенту ACK,
+		# чтобы его prediction history не росла до лимита.
+		if ps.last_sent_ack_seq != ps.last_applied_input_seq:
+			var ack_buf := StreamPeerBuffer.new()
+
+			NetProtocol.write_header(
+				ack_buf,
+				NetProtocol.MSG_STATE,
+				0
+			)
+
+			ack_buf.put_u16(server.tick)
+			ack_buf.put_u16(ps.last_applied_input_seq)
+
+			# ACK-only STATE: entity payload отсутствует.
+			ack_buf.put_u8(0)
+
+			ps.udp_peer.put_packet(
+				ack_buf.data_array
+			)
+
+			ps.last_sent_ack_seq = (
+				ps.last_applied_input_seq
+			)
+
 		return
 
 	# MTU-aware разбиение: набираем чанки, пока не упрёмся в лимит байт

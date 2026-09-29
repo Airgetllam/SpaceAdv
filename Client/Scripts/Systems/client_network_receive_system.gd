@@ -222,6 +222,53 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 	var acked_seq: int = buf.get_u16()
 	var count: int = buf.get_u8()
 
+	# ACK input не требует обязательного owner entity delta.
+	#
+	# Если сервер уже применил input, его можно удалить
+	# из prediction history даже тогда, когда authoritative
+	# transform не изменился настолько, чтобы попасть в delta.
+	var local_entity = ClientSession.get_entity(
+		ClientSession.net_id
+	)
+
+	if (
+		local_entity != null
+		and is_instance_valid(local_entity)
+	):
+		var history: C_InputHistory = (
+			local_entity.get_component(
+				C_InputHistory
+			)
+		)
+
+		if history != null:
+			var before_ack: int = (
+				history.entries.size()
+			)
+
+			var pending_inputs: Array = []
+
+			for inp in history.entries:
+				if int(inp.seq) > acked_seq:
+					pending_inputs.append(inp)
+
+			history.entries = pending_inputs
+
+			var removed: int = (
+				before_ack
+				- pending_inputs.size()
+			)
+
+			if removed > 4:
+				NetLog.d(
+					"input",
+					"ack=%d removed=%d pending=%d" % [
+						acked_seq,
+						removed,
+						pending_inputs.size(),
+					]
+				)
+
 	for _i in count:
 		var net_id: int = buf.get_u16()
 		var mask: int = buf.get_u8()

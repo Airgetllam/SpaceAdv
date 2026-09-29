@@ -12,13 +12,16 @@ func _ready() -> void:
 		"life_timer": LifeTimerSystem.new(),
 		"net_control": NetworkControlSystem.new(),
 		"net_registration": NetworkPeerRegistrationSystem.new(),
+
+		"admin_cursor_sync": AdminCursorSyncSystem.new(),
+		"admin_cursor_interaction": AdminCursorInteractionSystem.new(),
+		"admin_atack": AdminAtackSystem.new(),
 		"debug": AdminDebugVisualSystem.new(),
 		"debug_cleanup": AdminDebugCleanupSystem.new(),
+
 		"aoi": AOISystem.new(),
 		"net_send": NetworkSendSystem.new(),
-		"admin_cursor_sync": AdminCursorSyncSystem.new(),
-		"admin_atack": AdminAtackSystem.new(),
-		"admin_cursor_interaction": AdminCursorInteractionSystem.new(),
+
 		"movement": MovementSystem.new(),
 		"player_ability": PlayerAbilitySystem.new(),
 		"target_selection": PlayerTargetSelectionSystem.new(),
@@ -48,24 +51,31 @@ func _ready() -> void:
 		AmmoControlInitObserver.new(),
 	]
 
+	systems["transform_sync"].group = "physics"
+
+	systems["frame_create"].group = "UI"
+
+	systems["admin_cursor_sync"].group = "admin"
+	systems["admin_cursor_interaction"].group = "admin"
+	systems["admin_atack"].group = "admin"
+	systems["debug"].group = "admin"
+	systems["debug_cleanup"].group = "admin"
+
+	systems["aoi"].group = "network"
+	systems["net_send"].group = "network"
+
+	systems["movement"].group = "physics"
+	systems["player_ability"].group = "physics"
+	systems["target_selection"].group = "physics"
+	systems["player_fire"].group = "physics"
+
 	for system_name in systems.keys():
 		var system = systems[system_name]
 		system.name = system_name
 		_world.add_system(system)
 	_world.add_observers(observers)
 
-	systems["transform_sync"].group = "physics"
-	systems["frame_create"].group = "UI"
-	systems["admin_cursor_sync"].group = "admin"
-	systems["debug"].group = "admin"
-	systems["debug_cleanup"].group = "admin"
-	systems["admin_cursor_interaction"].group = "admin"
-	systems["aoi"].group = "network"
-	systems["net_send"].group = "network"
-	systems["movement"].group = "physics"
-	systems["player_fire"].group = "physics"
-	systems["target_selection"].group = "physics"
-	systems["player_ability"].group = "physics"
+
 
 	_create_entity('server', [
 		C_ServerIP.new(),
@@ -84,6 +94,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	ECS.process(delta)
+	ECS.process(delta, "admin")
+	ECS.process(delta, "UI")
 	_net_accum += delta
 	if _net_accum >= NetConfig.SERVER_TICK_DT:
 		_net_accum -= NetConfig.SERVER_TICK_DT

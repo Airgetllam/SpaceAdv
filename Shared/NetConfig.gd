@@ -25,7 +25,7 @@ const VEL_SCALE: float = 1.0    # 1 px/s = 1 единица, clamp ±32767
 const THROTTLE_SCALE: float = 127.0
 
 # Лимиты
-const MAX_PACKETS_PER_PEER_PER_TICK: int = 10
+const MAX_PACKETS_PER_PEER_PER_TICK: int = 128
 const MAX_ENTITIES_PER_STATE_PACKET: int = 64
 const MAX_RELIABLE_QUEUE: int = 256
 const MAX_INPUT_EVENTS_PER_PACKET: int = 8

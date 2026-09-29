@@ -2,7 +2,16 @@ extends System
 class_name VelocityApplySystem
 
 func query() -> QueryBuilder:
-	return q.with_all([C_Position, C_Velocity])
+	return (
+		q
+		.with_all([
+			C_Position,
+			C_Velocity,
+		])
+		.with_none([
+			C_PeerID,
+		])
+	)
 
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 	for entity in entities:

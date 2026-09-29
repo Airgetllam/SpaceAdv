@@ -71,9 +71,32 @@ func _spawn_one(shooter: Entity, sock_local: Vector2) -> void:
 	var ship_deg: float = dir_c.value
 
 	var target_entity: Entity = null
-	var tgt: C_Target = shooter.get_component(C_Target)
-	if tgt != null and not tgt.value.is_empty():
-		target_entity = tgt.value[0]
+
+	var targets: C_Targets = shooter.get_component(
+		C_Targets
+	)
+
+	if targets != null:
+		for target_dict in targets.list:
+			var state: int = target_dict.get(
+				"state",
+				0
+			)
+
+			if state != 1:
+				continue
+
+			var target = target_dict.get(
+				"entity",
+				null
+			)
+
+			if (
+				target is Entity
+				and is_instance_valid(target)
+			):
+				target_entity = target
+				break
 
 	var pname := "proj_%d" % randi()
 	var proj := Entity.new()

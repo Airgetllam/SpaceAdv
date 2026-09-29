@@ -138,8 +138,11 @@ func _apply_selection(
 	targets: C_Targets,
 	target: Entity
 ) -> void:
-	# C_Targets хранит текущий selected target
-	# как состояние gameplay/UI.
+	# C_Targets — единственный источник выбранной
+	# игроком gameplay/UI цели.
+	#
+	# C_Target игроку не добавляем:
+	# он используется projectile как цель самонаведения.
 	targets.list.clear()
 
 	if target != null:
@@ -147,13 +150,6 @@ func _apply_selection(
 			"state": 1,
 			"entity": target,
 		})
-
-		# PlayerFireSystem уже использует C_Target
-		# для наведения создаваемого projectile.
-		cmd.add_component(
-			entity,
-			C_Target.new(target)
-		)
 
 		NetLog.d(
 			"target",
@@ -165,12 +161,6 @@ func _apply_selection(
 			]
 		)
 	else:
-		if entity.has_component(C_Target):
-			cmd.remove_component(
-				entity,
-				C_Target
-			)
-
 		NetLog.d(
 			"target",
 			"cleared source_net_id=%d" % [

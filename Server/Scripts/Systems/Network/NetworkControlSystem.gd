@@ -44,6 +44,16 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 				buf.data_array = raw
 				_handle_message(server, ps, raw, buf)
 				count += 1
+			if peer.get_available_packet_count() > 0:
+				NetLog.d(
+					"recv",
+					"peer backlog net_id=%d remaining=%d processed=%d input_queue=%d" % [
+						ps.net_id,
+						peer.get_available_packet_count(),
+						count,
+						ps.input_queue.size(),
+					]
+				)
 			if ps.is_timed_out(Time.get_ticks_msec()):
 				dead_peers.append(peer)
 
