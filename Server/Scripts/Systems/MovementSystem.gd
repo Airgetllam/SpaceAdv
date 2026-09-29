@@ -21,11 +21,50 @@ func process(
 ) -> void:
 	_accum += delta
 
-	while _accum >= FIXED_DT:
-		_accum -= FIXED_DT
+	# Обычный authoritative movement остаётся 30 Hz.
+	var regular_step := false
 
-		for e in entities:
-			_step_one(e, FIXED_DT)
+	if _accum >= FIXED_DT:
+		_accum -= FIXED_DT
+		regular_step = true
+
+	for entity in entities:
+		var ps: PeerState = entity.get_meta(
+			"peer_state",
+			null
+		)
+
+		var catchup_step := false
+
+		if (
+			ps != null
+			and ps.input_queue.size()
+				> NetConfig.INPUT_CATCHUP_QUEUE_THRESHOLD
+		):
+			catchup_step = true
+
+		# Нормальный режим:
+		# ~30 authoritative steps/sec.
+		#
+		# При накопившейся очереди:
+		# максимум один step на physics frame,
+		# то есть до ~60 steps/sec при стандартных
+		# Godot physics ticks.
+		#
+		# Каждый input всё равно проходит через
+		# отдельный physics pipeline:
+		#
+		# Movement
+		# -> Ability
+		# -> TargetSelection
+		# -> PlayerFire
+		#
+		# Поэтому discrete events не теряются.
+		if regular_step or catchup_step:
+			_step_one(
+				entity,
+				FIXED_DT
+			)
 
 
 func _step_one(e: Entity, dt: float) -> void:
@@ -42,14 +81,44 @@ func _step_one(e: Entity, dt: float) -> void:
 		e.get_component(C_PlayerInputState)
 	)
 
-	# Один authoritative input frame соответствует
-	# одному MovementModel.step().
-	#
-	# Это сохраняет инвариант reconciliation:
-	# acked_seq == состояние после применения этого input_seq.
-	if ps and not ps.input_queue.is_empty():
-		var packet: Dictionary = ps.input_queue.pop_front()
-		var frame: PlayerInputFrame = packet.frame
+	if ps:
+		# Для network player один authoritative
+		# MovementModel.step соответствует одному input_seq.
+		#
+		# Если frame ещё не пришёл, simulation ждёт его.
+		# Redundant MSG_INPUT будет повторять старейший
+		# unacked frame до получения.
+		if ps.input_queue.is_empty():
+			return
+
+		var expected_seq: int
+
+		if ps.last_applied_input_seq == 0:
+			expected_seq = 1
+		else:
+			expected_seq = NetProtocol.seq_next(
+				ps.last_applied_input_seq
+			)
+
+		var first_packet: Dictionary = (
+			ps.input_queue[0]
+		)
+
+		var first_seq: int = int(
+			first_packet.seq
+		)
+
+		# Нельзя перескакивать через потерянный input.
+		if first_seq != expected_seq:
+			return
+
+		var packet: Dictionary = (
+			ps.input_queue.pop_front()
+		)
+
+		var frame: PlayerInputFrame = (
+			packet.frame
+		)
 
 		if input_state:
 			input_state.current_frame = frame

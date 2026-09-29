@@ -108,18 +108,35 @@ func _handle_input(
 	ps: PeerState,
 	buf: StreamPeerBuffer
 ) -> void:
-	var decoded := NetProtocol.read_input_frame(buf)
+	var decoded_bundle := (
+		NetProtocol.read_input_bundle(buf)
+	)
 
-	if not decoded.valid:
-		NetLog.d("recv", "invalid MSG_INPUT")
+	if not decoded_bundle.valid:
+		NetLog.d(
+			"recv",
+			"invalid MSG_INPUT bundle"
+		)
 		return
 
-	var input_seq: int = decoded.seq
-	var frame: PlayerInputFrame = decoded.frame
+	var frames: Array = (
+		decoded_bundle.frames
+	)
 
-	# Отбрасываем уже применённые / устаревшие input.
-	# Обычное <= здесь использовать нельзя:
-	# sequence является uint16 и переходит 65535 -> 1.
+	for decoded in frames:
+		_enqueue_input(
+			ps,
+			int(decoded.seq),
+			decoded.frame
+		)
+
+func _enqueue_input(
+	ps: PeerState,
+	input_seq: int,
+	frame: PlayerInputFrame
+) -> void:
+	# Уже применённые redundant frames просто
+	# отбрасываются.
 	if (
 		ps.last_applied_input_seq != 0
 		and not NetProtocol.seq_is_newer(
@@ -129,8 +146,8 @@ func _handle_input(
 	):
 		return
 
-	# UDP может доставить одинаковый пакет повторно
-	# либо изменить порядок доставки.
+	# Один и тот же frame может приходить
+	# во многих последовательных bundles.
 	for queued in ps.input_queue:
 		if int(queued.seq) == input_seq:
 			return
@@ -140,11 +157,14 @@ func _handle_input(
 		"frame": frame,
 	}
 
-	# Храним input_queue в sequence-порядке,
-	# а не в порядке прихода UDP datagram.
-	var insert_index: int = ps.input_queue.size()
+	# UDP bundles тоже могут прийти не по порядку.
+	var insert_index: int = (
+		ps.input_queue.size()
+	)
 
-	for i in range(ps.input_queue.size()):
+	for i in range(
+		ps.input_queue.size()
+	):
 		var queued_seq: int = int(
 			ps.input_queue[i].seq
 		)
@@ -161,11 +181,6 @@ func _handle_input(
 		packet
 	)
 
-	# Пока сохраняем существующий hard limit.
-	#
-	# ВАЖНО: старые frames не выбрасываем —
-	# они первыми нужны authoritative simulation.
-	# Если очередь переполнена, отбрасываем самый новый frame.
 	if ps.input_queue.size() > 128:
 		var dropped: Dictionary = (
 			ps.input_queue.pop_back()

@@ -30,6 +30,20 @@ const MAX_ENTITIES_PER_STATE_PACKET: int = 64
 const MAX_RELIABLE_QUEUE: int = 256
 const MAX_INPUT_EVENTS_PER_PACKET: int = 8
 
+# Один MSG_INPUT содержит последовательное окно
+# самых старых unacked input frames.
+#
+# Даже при MAX_INPUT_EVENTS_PER_PACKET = 8
+# шесть frames остаются ниже нашего MTU budget.
+const MAX_INPUT_FRAMES_PER_PACKET: int = 6
+
+# Пока очередь небольшая, simulation работает
+# с обычной частотой 30 Hz.
+#
+# Если накопилось больше frames, сервер временно
+# использует промежуточные physics frames для catch-up.
+const INPUT_CATCHUP_QUEUE_THRESHOLD: int = 2
+
 # AOI / приоритизация
 const AOI_REFRESH_TICKS: int = 2           # пересчёт видимости раз в 2 серверных тика
 const NEAR_RADIUS: float = 5000.0

@@ -45,6 +45,18 @@ static func seq_is_older(
 ) -> bool:
 	return seq_is_newer(b, a)
 
+static func seq_next(
+	seq: int
+) -> int:
+	var result := (seq + 1) & 0xFFFF
+
+	# input_seq == 0 зарезервирован и клиентом
+	# не используется.
+	if result == 0:
+		result = 1
+
+	return result
+
 # --- Строки ---
 static func write_string(buf: StreamPeerBuffer, s: String) -> void:
 	var bytes := s.to_utf8_buffer()
@@ -136,6 +148,33 @@ static func write_input_frame(
 		buf.put_float(event.position.x)
 		buf.put_float(event.position.y)
 
+static func write_input_bundle(
+	buf: StreamPeerBuffer,
+	entries: Array
+) -> void:
+	var count: int = mini(
+		entries.size(),
+		NetConfig.MAX_INPUT_FRAMES_PER_PACKET
+	)
+
+	buf.put_u8(count)
+
+	for i in count:
+		var entry: Dictionary = entries[i]
+
+		var frame = entry.get(
+			"frame",
+			null
+		)
+
+		if not (frame is PlayerInputFrame):
+			continue
+
+		write_input_frame(
+			buf,
+			int(entry.get("seq", 0)),
+			frame
+		)
 
 static func read_input_frame(
 	buf: StreamPeerBuffer
@@ -212,5 +251,39 @@ static func read_input_frame(
 	result.valid = true
 	result.seq = input_seq
 	result.frame = frame
+
+	return result
+
+static func read_input_bundle(
+	buf: StreamPeerBuffer
+) -> Dictionary:
+	var result := {
+		"valid": false,
+		"frames": [],
+	}
+
+	if buf.get_available_bytes() < 1:
+		return result
+
+	var count: int = buf.get_u8()
+
+	if (
+		count <= 0
+		or count > NetConfig.MAX_INPUT_FRAMES_PER_PACKET
+	):
+		return result
+
+	var frames: Array = []
+
+	for _i in count:
+		var decoded := read_input_frame(buf)
+
+		if not decoded.valid:
+			return result
+
+		frames.append(decoded)
+
+	result.valid = true
+	result.frames = frames
 
 	return result

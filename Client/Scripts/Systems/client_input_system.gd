@@ -123,28 +123,13 @@ func _tick(entity: Entity) -> void:
 		"brake": brake,
 		"dt": FIXED_DT,
 		"events": frame.events,
+		"frame": frame,
 	})
 
 	if hist.entries.size() > 256:
 		hist.entries.pop_front()
 
-	# Generic MSG_INPUT.
-
-	var buf := StreamPeerBuffer.new()
-
-	NetProtocol.write_header(
-		buf,
-		NetProtocol.MSG_INPUT,
-		0
-	)
-
-	NetProtocol.write_input_frame(
-		buf,
-		seq,
-		frame
-	)
-
-	ClientSession.udp.put_packet(buf.data_array)
+	_send_input_bundle(hist)
 
 	if not frame.events.is_empty():
 		for event in frame.events:
@@ -159,6 +144,55 @@ func _tick(entity: Entity) -> void:
 					event.position.y,
 				]
 			)
+
+func _send_input_bundle(
+	history: C_InputHistory
+) -> void:
+	if ClientSession.udp == null:
+		return
+
+	if history.entries.is_empty():
+		return
+
+	# Отправляем строго последовательное окно
+	# самых старых unacked inputs.
+	#
+	# Если накопилось:
+	# 101 102 103 ... 120
+	#
+	# пакет содержит:
+	# 101 102 103 104 105 106
+	#
+	# а не:
+	# 101 102 120.
+	var count: int = mini(
+		history.entries.size(),
+		NetConfig.MAX_INPUT_FRAMES_PER_PACKET
+	)
+
+	var bundle: Array = []
+
+	for i in range(count):
+		bundle.append(
+			history.entries[i]
+		)
+
+	var buf := StreamPeerBuffer.new()
+
+	NetProtocol.write_header(
+		buf,
+		NetProtocol.MSG_INPUT,
+		0
+	)
+
+	NetProtocol.write_input_bundle(
+		buf,
+		bundle
+	)
+
+	ClientSession.udp.put_packet(
+		buf.data_array
+	)
 
 func _send_ping() -> void:
 	var seq := ClientSession.next_ping_seq
