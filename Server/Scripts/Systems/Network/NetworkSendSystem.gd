@@ -100,6 +100,7 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 			"nid": nid,
 			"bytes": delta,
 			"snap": _snapshot(e, ps, is_own),
+			"is_player": e.has_component(C_PeerID),
 		})
 
 	if deltas.is_empty():
@@ -144,6 +145,7 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 		var total_bytes := 0
 		var j := i
 		var contains_owner := false
+		var contains_player := false
 
 		while j < deltas.size() and chunk.size() < NetConfig.MAX_ENTITIES_PER_STATE_PACKET:
 			var d: Dictionary = deltas[j]
@@ -157,6 +159,8 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 
 			if int(d.nid) == ps.net_id:
 				contains_owner = true
+			if d.get("is_player", false):
+				contains_player = true
 
 			j += 1
 
@@ -166,6 +170,7 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 		if (
 			total_bytes < NetConfig.MIN_STATE_PAYLOAD_BYTES
 			and not contains_owner
+			and not contains_player
 			and ps.state_defer_ticks < NetConfig.STATE_DEFER_MAX_TICKS
 		):
 			deferred_this_tick = true
@@ -217,17 +222,48 @@ func _send_state(server: C_ServerIP, ps: PeerState) -> void:
 ## Остальные — по расстоянию: near (≤800) каждый тик, mid (≤1600) раз в 2,
 ## far (>1600) раз в 4. Фаза (server.tick + nid) размазывает обновления,
 ## чтобы не было пиков на одном тике.
-func _update_interval(e: Entity, dist_sq: float) -> int:
-	var et: C_EntityType = e.get_component(C_EntityType)
-	if et != null and et.value == "projectile":
-		return NetConfig.PROJECTILE_UPDATE_INTERVAL
+func _update_interval(
+	e: Entity,
+	dist_sq: float
+) -> int:
+	# Player state имеет высший приоритет.
+	#
+	# При SERVER_TICK_RATE = 20 чужой корабль
+	# всегда получает state с частотой до 20 Гц.
+	# Это оставляет запас для клиентской
+	# INTERP_DURATION = 0.1 даже при потере
+	# отдельного unreliable packet.
+	if e.has_component(C_PeerID):
+		return 1
 
-	var near_sq: float = NetConfig.NEAR_RADIUS * NetConfig.NEAR_RADIUS
-	var mid_sq: float = NetConfig.MID_RADIUS * NetConfig.MID_RADIUS
+	var et: C_EntityType = (
+		e.get_component(C_EntityType)
+	)
+
+	if (
+		et != null
+		and et.value == "projectile"
+	):
+		return (
+			NetConfig.PROJECTILE_UPDATE_INTERVAL
+		)
+
+	var near_sq: float = (
+		NetConfig.NEAR_RADIUS
+		* NetConfig.NEAR_RADIUS
+	)
+
+	var mid_sq: float = (
+		NetConfig.MID_RADIUS
+		* NetConfig.MID_RADIUS
+	)
+
 	if dist_sq <= near_sq:
 		return 1
+
 	if dist_sq <= mid_sq:
 		return 2
+
 	return 4
 
 

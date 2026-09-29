@@ -222,19 +222,35 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 	var acked_seq: int = buf.get_u16()
 	var count: int = buf.get_u8()
 
-	# ACK input не требует обязательного owner entity delta.
-	#
-	# Если сервер уже применил input, его можно удалить
-	# из prediction history даже тогда, когда authoritative
-	# transform не изменился настолько, чтобы попасть в delta.
 	var local_entity = ClientSession.get_entity(
 		ClientSession.net_id
 	)
+
+	var local_last: C_LastServerState = null
 
 	if (
 		local_entity != null
 		and is_instance_valid(local_entity)
 	):
+		local_last = local_entity.get_component(
+			C_LastServerState
+		)
+
+	# ACK может прийти без owner delta.
+	# Принимаем только ACK, который новее уже виденного.
+	if (
+		local_last != null
+		and acked_seq != 0
+		and (
+			local_last.last_input_ack_seq == 0
+			or NetProtocol.seq_is_newer(
+				acked_seq,
+				local_last.last_input_ack_seq
+			)
+		)
+	):
+		local_last.last_input_ack_seq = acked_seq
+
 		var history: C_InputHistory = (
 			local_entity.get_component(
 				C_InputHistory
@@ -249,7 +265,10 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 			var pending_inputs: Array = []
 
 			for inp in history.entries:
-				if int(inp.seq) > acked_seq:
+				if NetProtocol.seq_is_newer(
+					int(inp.seq),
+					acked_seq
+				):
 					pending_inputs.append(inp)
 
 			history.entries = pending_inputs
@@ -291,15 +310,45 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 			continue
 
 		if net_id == ClientSession.net_id:
-			var last: C_LastServerState = e.get_component(C_LastServerState)
+			var last: C_LastServerState = (
+				e.get_component(
+					C_LastServerState
+				)
+			)
+
 			if last == null:
 				continue
+
+			# UDP MSG_STATE тоже может прийти не по порядку.
+			# Нельзя позволять старому authoritative snapshot
+			# откатить новый.
+			if (
+				last.last_acked_seq != 0
+				and not NetProtocol.seq_is_newer(
+					acked_seq,
+					last.last_acked_seq
+				)
+			):
+				continue
+
 			if has_pos:
-				last.pos = NetProtocol.dequant_pos(Vector2i(qx, qy), ClientSession.map_min, ClientSession.map_max)
+				last.pos = NetProtocol.dequant_pos(
+					Vector2i(qx, qy),
+					ClientSession.map_min,
+					ClientSession.map_max
+				)
+
 			if has_rot:
-				last.rot = NetProtocol.dequant_rot(qrot)
+				last.rot = NetProtocol.dequant_rot(
+					qrot
+				)
+
 			if has_vel:
-				last.vel = Vector2(vx, vy)
+				last.vel = Vector2(
+					vx,
+					vy
+				)
+
 			last.last_acked_seq = acked_seq
 			last.dirty = true
 		else:

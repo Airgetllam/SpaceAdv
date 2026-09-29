@@ -24,6 +24,27 @@ static func write_header(buf: StreamPeerBuffer, msg_type: int, seq: int) -> void
 static func read_header(buf: StreamPeerBuffer) -> Dictionary:
 	return { "msg_type": buf.get_u8(), "seq": buf.get_u16() }
 
+# --- uint16 sequence helpers ---
+
+static func seq_is_newer(
+	a: int,
+	b: int
+) -> bool:
+	a &= 0xFFFF
+	b &= 0xFFFF
+
+	if a == b:
+		return false
+
+	return ((a - b) & 0xFFFF) < 0x8000
+
+
+static func seq_is_older(
+	a: int,
+	b: int
+) -> bool:
+	return seq_is_newer(b, a)
+
 # --- Строки ---
 static func write_string(buf: StreamPeerBuffer, s: String) -> void:
 	var bytes := s.to_utf8_buffer()

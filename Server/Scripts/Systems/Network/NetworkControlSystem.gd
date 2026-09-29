@@ -117,24 +117,68 @@ func _handle_input(
 	var input_seq: int = decoded.seq
 	var frame: PlayerInputFrame = decoded.frame
 
-	# Отбрасываем устаревшие и дубликаты.
-	if input_seq <= ps.last_applied_input_seq:
+	# Отбрасываем уже применённые / устаревшие input.
+	# Обычное <= здесь использовать нельзя:
+	# sequence является uint16 и переходит 65535 -> 1.
+	if (
+		ps.last_applied_input_seq != 0
+		and not NetProtocol.seq_is_newer(
+			input_seq,
+			ps.last_applied_input_seq
+		)
+	):
 		return
 
+	# UDP может доставить одинаковый пакет повторно
+	# либо изменить порядок доставки.
 	for queued in ps.input_queue:
-		if queued.seq == input_seq:
+		if int(queued.seq) == input_seq:
 			return
 
-	# NetworkControlSystem больше не знает:
-	# fire, target_select, weapon, ability и т.д.
-	# Он только принимает generic PlayerInputFrame.
-	ps.input_queue.append({
+	var packet := {
 		"seq": input_seq,
 		"frame": frame,
-	})
+	}
 
-	while ps.input_queue.size() > 128:
-		ps.input_queue.pop_front()
+	# Храним input_queue в sequence-порядке,
+	# а не в порядке прихода UDP datagram.
+	var insert_index: int = ps.input_queue.size()
+
+	for i in range(ps.input_queue.size()):
+		var queued_seq: int = int(
+			ps.input_queue[i].seq
+		)
+
+		if NetProtocol.seq_is_newer(
+			queued_seq,
+			input_seq
+		):
+			insert_index = i
+			break
+
+	ps.input_queue.insert(
+		insert_index,
+		packet
+	)
+
+	# Пока сохраняем существующий hard limit.
+	#
+	# ВАЖНО: старые frames не выбрасываем —
+	# они первыми нужны authoritative simulation.
+	# Если очередь переполнена, отбрасываем самый новый frame.
+	if ps.input_queue.size() > 128:
+		var dropped: Dictionary = (
+			ps.input_queue.pop_back()
+		)
+
+		NetLog.d(
+			"input",
+			"queue overflow net_id=%d dropped_seq=%d size=%d" % [
+				ps.net_id,
+				int(dropped.seq),
+				ps.input_queue.size(),
+			]
+		)
 
 	if not frame.events.is_empty():
 		for event in frame.events:

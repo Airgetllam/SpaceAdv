@@ -10,7 +10,13 @@ func process(entities: Array[Entity], _components: Array, _delta: float) -> void
 		if not last.dirty:
 			continue
 		last.dirty = false
-		if last.last_acked_seq <= last.last_reconciled_seq:
+		if (
+			last.last_reconciled_seq != 0
+			and not NetProtocol.seq_is_newer(
+				last.last_acked_seq,
+				last.last_reconciled_seq
+			)
+		):
 			continue
 		_reconcile(e, last)
 
@@ -26,7 +32,10 @@ func _reconcile(entity: Entity, last: C_LastServerState) -> void:
 		"throttle": pred.throttle,
 	}
 	for inp in hist.entries:
-		if inp.seq <= last.last_acked_seq:
+		if not NetProtocol.seq_is_newer(
+			int(inp.seq),
+			last.last_acked_seq
+		):
 			continue
 
 		s = MovementModel.step(s, {
@@ -62,7 +71,10 @@ func _reconcile(entity: Entity, last: C_LastServerState) -> void:
 	var before: int = hist.entries.size()
 	var nh: Array = []
 	for inp in hist.entries:
-		if inp.seq > last.last_acked_seq:
+		if NetProtocol.seq_is_newer(
+			int(inp.seq),
+			last.last_acked_seq
+		):
 			nh.append(inp)
 	hist.entries = nh
 	last.last_reconciled_seq = last.last_acked_seq
