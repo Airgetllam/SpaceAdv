@@ -4,6 +4,7 @@ class_name C_LastServerState
 @export var pos: Vector2 = Vector2.ZERO
 @export var rot: float = 0.0
 @export var vel: Vector2 = Vector2.ZERO
+@export var throttle: float = 0.0
 
 # ACK, которому соответствует pos/rot/vel.
 @export var last_acked_seq: int = 0

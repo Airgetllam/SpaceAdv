@@ -267,29 +267,92 @@ func _update_interval(
 	return 4
 
 
-func _build_entity_delta(entity, prev: Dictionary, ps: PeerState, use_acked: bool) -> PackedByteArray:
-	var nid_c: C_NetId = entity.get_component(C_NetId)
+func _build_entity_delta(
+	entity,
+	prev: Dictionary,
+	ps: PeerState,
+	use_acked: bool
+) -> PackedByteArray:
+	var nid_c: C_NetId = (
+		entity.get_component(C_NetId)
+	)
+
 	if nid_c == null:
 		return PackedByteArray()
 
-	var pos_c: C_Position = entity.get_component(C_Position)
-	var dir_c: C_Direction = entity.get_component(C_Direction)
-	var vel_c: C_Velocity = entity.get_component(C_Velocity)
-	var hp_c: C_HP = entity.get_component(C_HP)
+	var pos_c: C_Position = (
+		entity.get_component(C_Position)
+	)
+
+	var dir_c: C_Direction = (
+		entity.get_component(C_Direction)
+	)
+
+	var vel_c: C_Velocity = (
+		entity.get_component(C_Velocity)
+	)
+
+	var hp_c: C_HP = (
+		entity.get_component(C_HP)
+	)
+
+	var force_c: C_Force = (
+		entity.get_component(C_Force)
+	)
 
 	var cur_pos: Vector2
 	var cur_rot_deg: float
 	var cur_vel: Vector2
-	if use_acked and ps and ps.acked_initialized:
+	var cur_throttle: float = 0.0
+
+	if (
+		use_acked
+		and ps != null
+		and ps.acked_initialized
+	):
 		cur_pos = ps.acked_pos
 		cur_rot_deg = ps.acked_rot
 		cur_vel = ps.acked_vel
+		cur_throttle = ps.acked_throttle
 	else:
-		cur_pos = pos_c.value if pos_c else Vector2.ZERO
-		cur_rot_deg = dir_c.value if dir_c else 0.0
-		cur_vel = vel_c.value if vel_c else Vector2.ZERO
+		cur_pos = (
+			pos_c.value
+			if pos_c
+			else Vector2.ZERO
+		)
+
+		cur_rot_deg = (
+			dir_c.value
+			if dir_c
+			else 0.0
+		)
+
+		cur_vel = (
+			vel_c.value
+			if vel_c
+			else Vector2.ZERO
+		)
+
+		cur_throttle = (
+			force_c.value
+			if force_c
+			else 0.0
+		)
+
+	# Если сервер применил новый input_seq,
+	# owner получает полный movement snapshot,
+	# даже если квантованные pos/rot/vel
+	# визуально ещё не изменились.
+	var force_owner_snapshot: bool = (
+		use_acked
+		and ps != null
+		and ps.acked_initialized
+		and ps.last_sent_ack_seq
+			!= ps.last_applied_input_seq
+	)
 
 	var mask: int = 0
+
 	var q_pos: Vector2i = Vector2i.ZERO
 	var q_rot: int = 0
 	var q_vx: int = 0
@@ -297,71 +360,188 @@ func _build_entity_delta(entity, prev: Dictionary, ps: PeerState, use_acked: boo
 	var cur_hp: int = 0
 
 	if pos_c:
-		q_pos = NetProtocol.quant_pos(cur_pos, NetConfig.MAP_MIN, NetConfig.MAP_MAX)
-		if prev.get("pos_q") != q_pos:
+		q_pos = NetProtocol.quant_pos(
+			cur_pos,
+			NetConfig.MAP_MIN,
+			NetConfig.MAP_MAX
+		)
+
+		if (
+			force_owner_snapshot
+			or prev.get("pos_q") != q_pos
+		):
 			mask |= 1
 
 	if dir_c:
-		q_rot = NetProtocol.quant_rot(deg_to_rad(cur_rot_deg))
-		if prev.get("rot_q") != q_rot:
+		q_rot = NetProtocol.quant_rot(
+			deg_to_rad(cur_rot_deg)
+		)
+
+		if (
+			force_owner_snapshot
+			or prev.get("rot_q") != q_rot
+		):
 			mask |= 2
 
 	if hp_c:
 		cur_hp = hp_c.value
+
 		if prev.get("hp") != cur_hp:
 			mask |= 4
 
 	if vel_c:
-		q_vx = clampi(int(cur_vel.x), -32768, 32767)
-		q_vy = clampi(int(cur_vel.y), -32768, 32767)
-		if prev.get("vx") != q_vx or prev.get("vy") != q_vy:
+		q_vx = clampi(
+			int(cur_vel.x),
+			-32768,
+			32767
+		)
+
+		q_vy = clampi(
+			int(cur_vel.y),
+			-32768,
+			32767
+		)
+
+		if (
+			force_owner_snapshot
+			or prev.get("vx") != q_vx
+			or prev.get("vy") != q_vy
+		):
 			mask |= 8
+
+	# bit 16 используется только owner snapshot.
+	# throttle передаём float, чтобы reconciliation
+	# стартовал с точного MovementModel state.
+	if use_acked and force_c:
+		if (
+			force_owner_snapshot
+			or prev.get("throttle") != cur_throttle
+		):
+			mask |= 16
 
 	if mask == 0:
 		return PackedByteArray()
 
 	var body := StreamPeerBuffer.new()
+
 	body.put_u16(nid_c.value)
 	body.put_u8(mask)
+
 	if mask & 1:
 		body.put_u16(q_pos.x)
 		body.put_u16(q_pos.y)
+
 	if mask & 2:
 		body.put_u16(q_rot)
+
 	if mask & 4:
 		body.put_u16(cur_hp)
+
 	if mask & 8:
 		body.put_16(q_vx)
 		body.put_16(q_vy)
+
+	if mask & 16:
+		body.put_float(cur_throttle)
+
 	return body.data_array
 
 
-func _snapshot(entity, ps: PeerState, use_acked: bool) -> Dictionary:
+func _snapshot(
+	entity,
+	ps: PeerState,
+	use_acked: bool
+) -> Dictionary:
 	var out: Dictionary = {}
-	var pos_c: C_Position = entity.get_component(C_Position)
-	var dir_c: C_Direction = entity.get_component(C_Direction)
-	var hp_c: C_HP = entity.get_component(C_HP)
-	var vel_c: C_Velocity = entity.get_component(C_Velocity)
+
+	var pos_c: C_Position = (
+		entity.get_component(C_Position)
+	)
+
+	var dir_c: C_Direction = (
+		entity.get_component(C_Direction)
+	)
+
+	var hp_c: C_HP = (
+		entity.get_component(C_HP)
+	)
+
+	var vel_c: C_Velocity = (
+		entity.get_component(C_Velocity)
+	)
+
+	var force_c: C_Force = (
+		entity.get_component(C_Force)
+	)
 
 	var cur_pos: Vector2
 	var cur_rot_deg: float
 	var cur_vel: Vector2
-	if use_acked and ps and ps.acked_initialized:
+	var cur_throttle: float = 0.0
+
+	if (
+		use_acked
+		and ps != null
+		and ps.acked_initialized
+	):
 		cur_pos = ps.acked_pos
 		cur_rot_deg = ps.acked_rot
 		cur_vel = ps.acked_vel
+		cur_throttle = ps.acked_throttle
 	else:
-		cur_pos = pos_c.value if pos_c else Vector2.ZERO
-		cur_rot_deg = dir_c.value if dir_c else 0.0
-		cur_vel = vel_c.value if vel_c else Vector2.ZERO
+		cur_pos = (
+			pos_c.value
+			if pos_c
+			else Vector2.ZERO
+		)
+
+		cur_rot_deg = (
+			dir_c.value
+			if dir_c
+			else 0.0
+		)
+
+		cur_vel = (
+			vel_c.value
+			if vel_c
+			else Vector2.ZERO
+		)
+
+		cur_throttle = (
+			force_c.value
+			if force_c
+			else 0.0
+		)
 
 	if pos_c:
-		out["pos_q"] = NetProtocol.quant_pos(cur_pos, NetConfig.MAP_MIN, NetConfig.MAP_MAX)
+		out["pos_q"] = NetProtocol.quant_pos(
+			cur_pos,
+			NetConfig.MAP_MIN,
+			NetConfig.MAP_MAX
+		)
+
 	if dir_c:
-		out["rot_q"] = NetProtocol.quant_rot(deg_to_rad(cur_rot_deg))
+		out["rot_q"] = NetProtocol.quant_rot(
+			deg_to_rad(cur_rot_deg)
+		)
+
 	if hp_c:
 		out["hp"] = hp_c.value
+
 	if vel_c:
-		out["vx"] = clampi(int(cur_vel.x), -32768, 32767)
-		out["vy"] = clampi(int(cur_vel.y), -32768, 32767)
+		out["vx"] = clampi(
+			int(cur_vel.x),
+			-32768,
+			32767
+		)
+
+		out["vy"] = clampi(
+			int(cur_vel.y),
+			-32768,
+			32767
+		)
+
+	if use_acked and force_c:
+		out["throttle"] = cur_throttle
+
 	return out

@@ -17,6 +17,7 @@ func query() -> QueryBuilder:
 		C_InputHistory,
 		C_PlayerInput,
 		C_Position,
+		C_LastServerState,
 	])
 
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
@@ -43,6 +44,9 @@ func _tick(entity: Entity) -> void:
 		return
 
 	var hist: C_InputHistory = entity.get_component(C_InputHistory)
+	var last: C_LastServerState = (
+		entity.get_component(C_LastServerState)
+	)
 	var player_input: C_PlayerInput = entity.get_component(C_PlayerInput)
 	var pos: C_Position = entity.get_component(C_Position)
 
@@ -129,7 +133,10 @@ func _tick(entity: Entity) -> void:
 	if hist.entries.size() > 256:
 		hist.entries.pop_front()
 
-	_send_input_bundle(hist)
+	_send_input_bundle(
+		hist,
+		last.last_input_ack_seq
+	)
 
 	if not frame.events.is_empty():
 		for event in frame.events:
@@ -146,7 +153,8 @@ func _tick(entity: Entity) -> void:
 			)
 
 func _send_input_bundle(
-	history: C_InputHistory
+	history: C_InputHistory,
+	acked_seq: int
 ) -> void:
 	if ClientSession.udp == null:
 		return
@@ -154,28 +162,35 @@ func _send_input_bundle(
 	if history.entries.is_empty():
 		return
 
-	# Отправляем строго последовательное окно
-	# самых старых unacked inputs.
-	#
-	# Если накопилось:
-	# 101 102 103 ... 120
-	#
-	# пакет содержит:
-	# 101 102 103 104 105 106
-	#
-	# а не:
-	# 101 102 120.
-	var count: int = mini(
-		history.entries.size(),
-		NetConfig.MAX_INPUT_FRAMES_PER_PACKET
-	)
-
 	var bundle: Array = []
 
-	for i in range(count):
-		bundle.append(
-			history.entries[i]
+	# History хранится до authoritative reconciliation,
+	# но transport не должен повторно отправлять frames,
+	# которые сервер уже подтвердил.
+	for entry in history.entries:
+		var entry_seq: int = int(
+			entry.get("seq", 0)
 		)
+
+		if (
+			acked_seq != 0
+			and not NetProtocol.seq_is_newer(
+				entry_seq,
+				acked_seq
+			)
+		):
+			continue
+
+		bundle.append(entry)
+
+		if (
+			bundle.size()
+			>= NetConfig.MAX_INPUT_FRAMES_PER_PACKET
+		):
+			break
+
+	if bundle.is_empty():
+		return
 
 	var buf := StreamPeerBuffer.new()
 

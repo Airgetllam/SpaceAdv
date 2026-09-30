@@ -146,6 +146,7 @@ func _on_spawn(buf: StreamPeerBuffer) -> void:
 			last.pos = spawn_pos
 			last.rot = spawn_rot
 			last.vel = Vector2.ZERO
+			last.throttle = 0.0
 			last.last_acked_seq = 0
 			last.last_reconciled_seq = 0
 			last.dirty = false
@@ -236,8 +237,11 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 			C_LastServerState
 		)
 
-	# ACK может прийти без owner delta.
-	# Принимаем только ACK, который новее уже виденного.
+	# Transport ACK отвечает только за resend-window.
+	#
+	# C_InputHistory здесь НЕ очищаем:
+	# эти frames могут ещё понадобиться reconciliation,
+	# пока соответствующий owner snapshot не получен.
 	if (
 		local_last != null
 		and acked_seq != 0
@@ -251,43 +255,6 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 	):
 		local_last.last_input_ack_seq = acked_seq
 
-		var history: C_InputHistory = (
-			local_entity.get_component(
-				C_InputHistory
-			)
-		)
-
-		if history != null:
-			var before_ack: int = (
-				history.entries.size()
-			)
-
-			var pending_inputs: Array = []
-
-			for inp in history.entries:
-				if NetProtocol.seq_is_newer(
-					int(inp.seq),
-					acked_seq
-				):
-					pending_inputs.append(inp)
-
-			history.entries = pending_inputs
-
-			var removed: int = (
-				before_ack
-				- pending_inputs.size()
-			)
-
-			if removed > 4:
-				NetLog.d(
-					"input",
-					"ack=%d removed=%d pending=%d" % [
-						acked_seq,
-						removed,
-						pending_inputs.size(),
-					]
-				)
-
 	for _i in count:
 		var net_id: int = buf.get_u16()
 		var mask: int = buf.get_u8()
@@ -296,6 +263,7 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 		var has_rot := (mask & 2) != 0
 		var has_hp  := (mask & 4) != 0
 		var has_vel := (mask & 8) != 0
+		var has_throttle := (mask & 16) != 0
 
 		var qx: int = buf.get_u16() if has_pos else 0
 		var qy: int = buf.get_u16() if has_pos else 0
@@ -303,6 +271,12 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 		var hp: int = buf.get_u16() if has_hp else 0
 		var vx: int = buf.get_16() if has_vel else 0
 		var vy: int = buf.get_16() if has_vel else 0
+
+		var throttle: float = (
+			buf.get_float()
+			if has_throttle
+			else 0.0
+		)
 
 		var e = ClientSession.get_entity(net_id)
 
@@ -348,6 +322,9 @@ func _on_state(buf: StreamPeerBuffer) -> void:
 					vx,
 					vy
 				)
+
+			if has_throttle:
+				last.throttle = throttle
 
 			last.last_acked_seq = acked_seq
 			last.dirty = true

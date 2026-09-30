@@ -29,7 +29,7 @@ func _reconcile(entity: Entity, last: C_LastServerState) -> void:
 		"pos": last.pos,
 		"rot": last.rot,
 		"vel": last.vel,
-		"throttle": pred.throttle,
+		"throttle": last.throttle,
 	}
 	for inp in hist.entries:
 		if not NetProtocol.seq_is_newer(

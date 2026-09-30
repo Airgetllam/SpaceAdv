@@ -200,4 +200,5 @@ func _step_one(e: Entity, dt: float) -> void:
 		ps.acked_pos = pos_c.value
 		ps.acked_rot = dir_c.value
 		ps.acked_vel = vel_c.value
+		ps.acked_throttle = force_c.value
 		ps.acked_initialized = true
