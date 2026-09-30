@@ -58,14 +58,6 @@ func _tick(entity: Entity) -> void:
 	var turn_raw: float = frame.turn
 	var brake: bool = frame.brake
 
-	# Пока Stage 2 ещё не меняет сетевой протокол,
-	# старое поведение fire сохраняем через generic state.
-	var fire_1: bool = frame.is_action_pressed(InputActions.PRIMARY_FIRE)
-	var fire_2: bool = frame.is_action_pressed(InputActions.SECONDARY_FIRE)
-
-	var fire := fire_1 or fire_2
-	var fire_mode := 2 if fire_2 else 1
-
 	var throttle_q: int = NetProtocol.quant_axis(throttle_raw)
 	var turn_q: int = NetProtocol.quant_axis(turn_raw)
 

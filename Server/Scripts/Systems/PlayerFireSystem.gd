@@ -1,14 +1,13 @@
 extends System
 class_name PlayerFireSystem
-## Режимы (по ТЗ):
-##   fire_mode == 1 — по очереди, один ствол за тик, КД между выстрелами.
-##   fire_mode == 2 — одновременный залп, КД между залпами.
-## ammo.value_ammo_count уменьшается на КАЖДЫЙ выпущенный снаряд.
-## ammo.value_cd применяется одинаково в обоих режимах.
+## PRIMARY_FIRE — последовательная стрельба.
+## SECONDARY_FIRE — одновременный залп.
+##
+## Состояние кнопок читается напрямую из generic PlayerInputFrame.
+## Network/movement layer ничего о механике стрельбы не знает.
 
 func query() -> QueryBuilder:
-	return q.with_all([C_PeerID, C_ControlInput, C_Position, C_Direction,
-		C_AttackSocket, C_Ammo])
+	return q.with_all([C_PeerID, C_ControlInput, C_Position, C_Direction, C_AttackSocket, C_Ammo])
 
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 	for entity in entities:
@@ -16,9 +15,28 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		if cd > 0.0:
 			entity.set_meta("fire_cd", max(0.0, cd - delta))
 
-		var input: C_ControlInput = entity.get_component(C_ControlInput)
-		if input == null or not input.fire:
+		var input_state: C_PlayerInputState = (
+			entity.get_component(C_PlayerInputState)
+		)
+
+		if input_state == null:
 			continue
+
+		var frame: PlayerInputFrame = (
+			input_state.current_frame
+		)
+
+		var primary_fire := frame.is_action_pressed(
+			InputActions.PRIMARY_FIRE
+		)
+
+		var secondary_fire := frame.is_action_pressed(
+			InputActions.SECONDARY_FIRE
+		)
+
+		if not primary_fire and not secondary_fire:
+			continue
+
 		if entity.get_meta("fire_cd", 0.0) > 0.0:
 			continue
 
@@ -30,13 +48,20 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		if sockets == null or sockets.value.is_empty():
 			continue
 
-		match input.fire_mode:
-			1:
-				_fire_sequential(entity, sockets, ammo)
-			2:
-				_fire_salvo(entity, sockets, ammo)
-			_:
-				pass
+		# SECONDARY_FIRE имеет приоритет,
+		# если каким-то образом зажаты обе кнопки.
+		if secondary_fire:
+			_fire_salvo(
+				entity,
+				sockets,
+				ammo
+			)
+		else:
+			_fire_sequential(
+				entity,
+				sockets,
+				ammo
+			)
 
 
 func _fire_sequential(entity: Entity, sockets: C_AttackSocket, ammo: C_Ammo) -> void:

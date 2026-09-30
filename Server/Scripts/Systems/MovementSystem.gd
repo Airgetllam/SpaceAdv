@@ -131,22 +131,6 @@ func _step_one(e: Entity, dt: float) -> void:
 		inp_c.turn = frame.turn
 		inp_c.brake = frame.brake
 
-		inp_c.fire = (
-			frame.is_action_pressed(
-				InputActions.PRIMARY_FIRE
-			)
-			or frame.is_action_pressed(
-				InputActions.SECONDARY_FIRE
-			)
-		)
-
-		if frame.is_action_pressed(
-			InputActions.SECONDARY_FIRE
-		):
-			inp_c.fire_mode = 2
-		else:
-			inp_c.fire_mode = 1
-
 		var cursor_c: C_CursorPosition = (
 			e.get_component(C_CursorPosition)
 		)
