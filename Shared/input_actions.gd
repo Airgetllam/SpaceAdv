@@ -8,6 +8,8 @@ const PRIMARY_FIRE: int = 0
 const SECONDARY_FIRE: int = 1
 const TARGET_SELECT: int = 2
 const ABILITY_BOOST: int = 3
+const FULL_HEAL: int = 4
+const TEST: int = 5
 
 # Соответствие ID -> InputMap action.
 const ACTION_NAMES: Array[StringName] = [
@@ -15,4 +17,6 @@ const ACTION_NAMES: Array[StringName] = [
 	&"fire_alt",
 	&"target_select",
 	&"ability_boost",
+	&"full_heal",
+	&"test",
 ]
